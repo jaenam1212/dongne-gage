@@ -341,3 +341,183 @@ app/admin/products/
 - Link push subscription to customer phone number
 - Send actual push notifications via web-push library
 - Test push delivery on Android/iOS devices
+
+## Task 6 - Push Notification System
+
+### Architecture
+
+#### Push Utility Library (`lib/push.ts`)
+- Module-level `webpush.setVapidDetails()` configuration (runs once on import)
+- `sendPushToShop()` function sends to all subscriptions for a shop
+- Uses `Promise.allSettled()` to send to multiple subscribers in parallel
+- Automatic cleanup: removes subscriptions on 410/404 status codes
+- Payload format: `{ title, body, url }` - stringified JSON
+
+#### Push API Endpoint (`/api/push/send`)
+- Manual push sending for future features (admin dashboard trigger)
+- Auth check: user must own the shop
+- Delegates to `sendPushToShop()` utility
+
+#### Product Actions Integration
+- Updated shop query to include `name` and `slug` fields (needed for push notification)
+- Push sent after successful product insert, before redirect
+- Try-catch wrapper: product creation succeeds even if push fails
+- Notification format: `{shop.name} 새 상품 - {title} - 지금 예약하세요!`
+
+#### Reservation Management
+- **Server Component** (`page.tsx`): fetches reservations with filters (date, status)
+- **Client Component** (`reservation-list.tsx`): displays cards with status badges and action buttons
+- **Server Actions** (`actions.ts`): updates status and sends push to customer
+
+### Push Notification Patterns
+
+#### Sending to Shop Subscribers (New Product)
+```typescript
+await sendPushToShop(shop.id, {
+  title: `${shop.name} 새 상품`,
+  body: `${title} - 지금 예약하세요!`,
+  url: `/${shop.slug}`,
+})
+```
+
+#### Sending to Individual Customer (Reservation Status)
+```typescript
+// Find subscription by shop_id AND customer_phone
+const { data: subscription } = await supabase
+  .from('push_subscriptions')
+  .select('*')
+  .eq('shop_id', reservation.shop_id)
+  .eq('customer_phone', reservation.customer_phone)
+  .single()
+
+// Send directly with webpush.sendNotification()
+await webpush.sendNotification(
+  { endpoint, keys: { p256dh, auth } },
+  JSON.stringify({ title, body, url })
+)
+```
+
+### Reservation List UI
+
+#### Filters
+- **Date filters**: 전체 (all) / 오늘 (today)
+- **Status filters**: 전체 / 대기중 / 확인됨 / 취소됨 / 완료
+- URL-based: `/admin/reservations?date=today&status=pending`
+- Simple Link components (no client-side state)
+
+#### Status Badges
+- Inline styles with Tailwind classes (no shadcn Badge component)
+- Colors: yellow (pending), green (confirmed), red (cancelled), gray (completed)
+- Format: `bg-{color}-50 text-{color}-700 border-{color}-200`
+
+#### Action Buttons
+- **Pending**: "확인" (confirm) / "취소" (cancel)
+- **Confirmed**: "완료 처리" (complete)
+- **Cancelled/Completed**: No actions
+- Disabled state while updating (`updating` useState)
+- Toast notifications on success/error
+
+#### Reservation Card Layout
+- Product image thumbnail (20x20, rounded-xl)
+- Product title + status badge
+- Customer info: name, phone
+- Details: quantity, total price, pickup date, memo
+- Created timestamp
+- Action buttons (if applicable)
+
+### Error Handling
+
+#### Push Notification Failures
+- Never fail the primary operation (product creation, status update)
+- Log errors to console: `console.error('Push notification failed:', error)`
+- Clean up expired subscriptions on 410/404 status codes
+- Continue execution if push fails
+
+#### TypeScript Types
+- Installed `@types/web-push` for proper type support
+- `error: any` used for web-push errors (statusCode property)
+- Reservation interface with nested `products` object
+
+### Database Queries
+
+#### Reservation List with Product Join
+```typescript
+supabase
+  .from('reservations')
+  .select('*, products(title, price, image_url)')
+  .eq('shop_id', shop.id)
+  .order('created_at', { ascending: false })
+```
+
+#### Reservation with Shop and Product (for status update)
+```typescript
+supabase
+  .from('reservations')
+  .select('*, shops!inner(owner_id, name, slug), products(title)')
+  .eq('id', reservationId)
+  .single()
+```
+
+#### Find Customer Subscription
+```typescript
+supabase
+  .from('push_subscriptions')
+  .select('*')
+  .eq('shop_id', reservation.shop_id)
+  .eq('customer_phone', reservation.customer_phone)
+  .single()
+```
+
+### Conventions Maintained
+
+- **Korean UI**: All user-facing text in Korean
+- **Stone color palette**: consistent with existing admin pages
+- **formatKoreanWon()**: currency formatting
+- **react-hot-toast**: notification pattern
+- **Server actions**: `'use server'` with revalidatePath
+- **Error messages**: Korean strings thrown from server actions
+- **Loading states**: disabled buttons with `updating` flag
+
+### Files Created
+
+1. `lib/push.ts` - Push utility with sendPushToShop function
+2. `app/api/push/send/route.ts` - Manual push API endpoint
+3. `app/admin/reservations/page.tsx` - Server component with data fetching
+4. `app/admin/reservations/reservation-list.tsx` - Client component with UI
+5. `app/admin/reservations/actions.ts` - Server actions for status updates
+
+### Files Modified
+
+1. `app/admin/products/actions.ts` - Added push trigger on product creation
+2. `package.json` - Added `@types/web-push` dev dependency
+
+### Build Verification
+
+- `npm run build` → SUCCESS (4.8s compilation time)
+- TypeScript compilation: ZERO errors
+- All routes registered including `/admin/reservations`
+- Existing warnings only (workspace root, middleware deprecation)
+
+### Known Limitations
+
+- Push notifications require customer to have subscribed via PWA
+- Customer phone number must match exactly between reservation and subscription
+- No notification history/log in UI
+- No retry mechanism for failed push notifications
+- Subscription cleanup is automatic but not logged/reported
+
+### Integration Points
+
+- Task 5 PWA infrastructure: Service Worker receives push events
+- Task 2 admin layout: Reservations page uses AdminShell wrapper
+- Task 4 reservation API: customer_phone stored in reservations table
+- Task 1 database schema: push_subscriptions table with customer_phone column
+
+### Next Steps (Future Enhancements)
+
+- Add navigation link to reservations page in AdminShell sidebar
+- Implement notification history/audit log
+- Add bulk actions (confirm all pending, etc.)
+- Implement retry queue for failed push notifications
+- Add admin settings for notification templates
+- Real-time reservation updates with Supabase Realtime

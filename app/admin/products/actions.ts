@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { sendPushToShop } from '@/lib/push'
 
 export async function createProduct(formData: FormData) {
   const supabase = await createClient()
@@ -11,7 +12,7 @@ export async function createProduct(formData: FormData) {
 
   const { data: shop } = await supabase
     .from('shops')
-    .select('id')
+    .select('id, name, slug')
     .eq('owner_id', user.id)
     .single()
 
@@ -63,6 +64,16 @@ export async function createProduct(formData: FormData) {
   })
 
   if (error) return { error: '상품 등록에 실패했습니다' }
+
+  try {
+    await sendPushToShop(shop.id, {
+      title: `${shop.name} 새 상품`,
+      body: `${title.trim()} - 지금 예약하세요!`,
+      url: `/${shop.slug}`,
+    })
+  } catch (error) {
+    console.error('Push notification failed:', error)
+  }
 
   revalidatePath('/admin/products')
   redirect('/admin/products')
