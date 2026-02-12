@@ -227,3 +227,117 @@ app/admin/products/
 ### Files Modified
 - `app/[shop-slug]/layout.tsx` - removed static metadata (moved to page-level generateMetadata), added viewport export
 - `components/ui/checkbox.tsx` - installed via shadcn CLI
+
+## Task 5 - PWA Infrastructure (Progressive Web App)
+
+### PWA Components Created
+- `public/manifest.json` - Web App Manifest with Korean labels
+- `public/sw.js` - Service Worker for push notifications (NO offline caching)
+- `public/icon-192.svg` & `public/icon-512.svg` - SVG placeholder icons with 🏪 emoji
+- `app/api/push/subscribe/route.ts` - Push subscription registration API
+- `components/customer/pwa-install-prompt.tsx` - Android install banner (beforeinstallprompt)
+- `components/customer/sw-register.tsx` - Service Worker registration component
+- `app/[shop-slug]/install-guide/page.tsx` - iOS installation tutorial modal
+- VAPID keys generated and added to `.env.local`
+
+### Manifest Configuration
+- **name**: "동네 가게" (full name)
+- **short_name**: "동네가게" (no space)
+- **theme_color**: #1c1917 (stone-900)
+- **background_color**: #fafaf9 (stone-50)
+- **display**: standalone
+- **icons**: SVG format (192x192, 512x512) - used SVG instead of PNG for simplicity in MVP
+
+### Service Worker Patterns
+- Version management: `SW_VERSION = 'v1.0.0'`
+- Push event → `showNotification()` with title, body, icon, badge, vibrate, tag
+- Notification click → focus existing window or open new window with `clients.matchAll()`
+- NO Cache API usage (no offline caching per requirements)
+- NO background sync
+- Lifecycle events: install (skipWaiting), activate (claim)
+
+### VAPID Keys
+- Generated with: `npx web-push generate-vapid-keys`
+- Added to `.env.local`:
+  - `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (client-side)
+  - `VAPID_PRIVATE_KEY` (server-side)
+  - `VAPID_SUBJECT=mailto:admin@dongnegage.com`
+- Library installed: `web-push` (npm package)
+
+### Push Subscription API
+- **Endpoint**: POST `/api/push/subscribe`
+- **Input**: `{ endpoint, keys: { p256dh, auth }, shopId }`
+- **Rate limiting**: Same pattern as reservations API (10 req/min per IP)
+- **Database**: Inserts into `push_subscriptions` table with `customer_phone: null` (will be linked in Task 6)
+- **Response**: 201 with `{ success: true }` or 400/500 with error
+
+### Android Install Banner
+- Detects `beforeinstallprompt` event (Android Chrome only)
+- Dismissible with localStorage persistence (`pwa-install-dismissed`)
+- Fixed bottom position on mobile, max-width card on desktop
+- Korean text: "홈 화면에 추가하면 새 상품 알림을 받을 수 있어요!"
+- "설치하기" button calls `deferredPrompt.prompt()`
+- Auto-hidden after install or manual dismiss
+
+### iOS Installation Tutorial
+- **Route**: `/[shop-slug]/install-guide`
+- User agent detection: iOS + Safari only (redirects back otherwise)
+- Modal overlay with 4-step instructions in Korean
+- Step-by-step guide with icons (Share2, Plus, Home)
+- "다시 보지 않기" checkbox → `localStorage.setItem('ios-install-guide-dismissed', 'true')`
+- Designed as modal (fixed overlay with backdrop blur)
+
+### Meta Tags Added
+- `<link rel="manifest" href="/manifest.json">` in root layout
+- `<meta name="theme-color" content="#1c1917">` (via Viewport export)
+- `<meta name="apple-mobile-web-app-capable" content="yes">`
+- `<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">`
+- `<meta name="apple-mobile-web-app-title" content="동네 가게">`
+
+### Service Worker Registration
+- Registered in `components/customer/sw-register.tsx` (client component)
+- Included in root `app/layout.tsx` (runs on all pages)
+- `navigator.serviceWorker.register('/sw.js')` with console logging
+- No error handling UI (errors logged to console only)
+
+### Icon Strategy
+- SVG icons used instead of PNG for MVP simplicity
+- Cannot generate binary PNG files in current environment
+- SVG supported by modern browsers for PWA icons
+- Emoji-based placeholder (🏪 store icon on stone-900 background)
+- Production deployment may want actual PNG icons for better compatibility
+
+### localStorage Keys Used
+- `pwa-install-dismissed` - Android banner dismissal
+- `ios-install-guide-dismissed` - iOS tutorial "don't show again"
+
+### Integration Points
+- `PwaInstallPrompt` added to `app/[shop-slug]/layout.tsx` (shows on all shop pages)
+- `ServiceWorkerRegister` added to root `app/layout.tsx` (registers SW globally)
+- Push subscription API ready for Task 6 integration (actual push sending)
+
+### Build Verification
+- `npm run build` → ZERO errors (✅ PRIMARY verification met)
+- All new routes registered:
+  - `/[shop-slug]/install-guide` (iOS tutorial)
+  - `/api/push/subscribe` (subscription API)
+- TypeScript compilation: SUCCESS
+- Warnings (non-critical):
+  - Workspace root inference (multiple lockfiles) - existing issue
+  - "middleware" → "proxy" deprecation - existing from Task 1
+
+### Known Limitations
+- Service Worker only supports push notifications (no offline features)
+- PWA install prompts are browser-specific (Android Chrome, iOS Safari)
+- iOS requires manual installation (no programmatic prompt)
+- Push notification sending not implemented (Task 6)
+- No actual push subscription from client side yet (Task 6)
+- SVG icons may have limited browser support (consider PNG for production)
+
+### Next Steps (Task 6)
+- Implement client-side push subscription flow
+- Request notification permission
+- Subscribe user with VAPID public key
+- Link push subscription to customer phone number
+- Send actual push notifications via web-push library
+- Test push delivery on Android/iOS devices

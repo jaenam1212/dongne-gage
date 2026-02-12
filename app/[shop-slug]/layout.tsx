@@ -1,3 +1,5 @@
+import { PwaInstallPrompt } from '@/components/customer/pwa-install-prompt'
+
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
@@ -9,5 +11,10 @@ export default function ShopLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  return <>{children}</>
+  return (
+    <>
+      {children}
+      <PwaInstallPrompt />
+    </>
+  )
 }
