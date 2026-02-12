@@ -521,3 +521,36 @@ supabase
 - Implement retry queue for failed push notifications
 - Add admin settings for notification templates
 - Real-time reservation updates with Supabase Realtime
+
+## Task 7 - Landing Page & Self-Service Signup
+
+### Files Created
+- `components/landing/hero.tsx` - Hero section with Store icon and CTA
+- `components/landing/features.tsx` - 3-feature grid (Calendar, Bell, Smartphone)
+- `components/landing/cta.tsx` - Call-to-action section
+- `app/signup/page.tsx` - Client component with form, slug generation, toast
+- `app/signup/actions.ts` - Server action: auth signup + shop creation
+
+### Files Modified
+- `app/page.tsx` - Replaced Next.js default with Korean landing page
+
+### Signup Flow
+- Form: email, password, shopName, slug, phone (optional)
+- Slug auto-generated from shop name (lowercase, dashes)
+- Server action: slug uniqueness check → auth.signUp() → shops.insert()
+- On success: redirect to /admin/dashboard
+- On error: Korean error messages via toast + inline
+
+### Patterns Maintained
+- Stone color palette (stone-900, stone-50, stone-200)
+- Korean UI throughout
+- `createClient()` from `lib/supabase/server.ts`
+- shadcn/ui: Button, Input, Label
+- react-hot-toast for notifications
+- Mobile-first responsive
+
+### Build Verification
+- `npm run build` → ZERO errors
+- `/` route: static (prerendered)
+- `/signup` route: static (prerendered)
+- All existing routes unaffected
