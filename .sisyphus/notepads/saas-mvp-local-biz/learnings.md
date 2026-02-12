@@ -554,3 +554,60 @@ supabase
 - `/` route: static (prerendered)
 - `/signup` route: static (prerendered)
 - All existing routes unaffected
+
+## Task 8 - Deployment Preparation
+
+### Files Created
+- `public/robots.txt` - SEO crawling configuration
+- `public/sitemap.xml` - Basic sitemap with landing and signup pages
+- `DEPLOYMENT.md` - Comprehensive deployment guide (Supabase + Vercel)
+- `vercel.json` - Vercel configuration (regions, headers for SW/manifest)
+
+### Deployment Strategy
+**Manual deployment required** - Vercel deployment needs external account setup:
+1. Supabase production project creation
+2. Migration application to production DB
+3. Vercel project connection to GitHub
+4. Environment variables configuration
+5. Custom domain setup (optional)
+
+### Key Configuration
+- **Region**: ICN1 (Seoul) for Korean users
+- **Service Worker caching**: `max-age=0, must-revalidate` (always fresh)
+- **Manifest caching**: `max-age=3600` (1 hour)
+- **VAPID keys**: Must be copied from .env.local to Vercel
+
+### Production Checklist Provided
+Comprehensive checklist in DEPLOYMENT.md covering:
+- Supabase setup (migrations, storage, seed data)
+- Vercel deployment (env vars, build config)
+- Post-deployment verification (smoke tests, E2E, performance)
+- Monitoring and maintenance
+
+### Known Limitations
+- **Docker blocker**: Full E2E QA requires Supabase local (Docker not installed)
+- **Manual steps**: Vercel deployment cannot be automated from CLI in this context
+- **Test data**: Production seed data must be created manually via Supabase Dashboard
+
+### Build Verification
+- ✅ `npm run build` passes with ZERO errors
+- ✅ All 17 routes compile successfully
+- ✅ Static pages: `/`, `/signup`
+- ✅ Dynamic pages: All admin and customer routes
+
+### Deployment Files Summary
+| File | Purpose |
+|------|---------|
+| `vercel.json` | Vercel config: region (ICN1), SW/manifest headers |
+| `public/robots.txt` | Allow all crawlers, sitemap reference |
+| `public/sitemap.xml` | Landing + signup pages |
+| `DEPLOYMENT.md` | Step-by-step deployment guide (Supabase + Vercel) |
+
+### Next Steps for User
+1. Create Supabase production project
+2. Apply migrations: `npx supabase db push`
+3. Deploy to Vercel via GitHub integration
+4. Configure environment variables in Vercel Dashboard
+5. Run post-deployment verification checklist
+6. Test full E2E flow on production URL
+
