@@ -1,14 +1,35 @@
-import type { Metadata } from "next";
+import type { Metadata } from 'next'
+import { createClient } from '@/lib/supabase/server'
+import { AdminShell } from '@/components/admin/admin-shell'
 
 export const metadata: Metadata = {
-  title: "관리자 - 동네 가게",
-  description: "가게 관리자 페이지",
-};
+  title: '관리자 - 동네 가게',
+  description: '가게 관리자 페이지',
+}
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.ReactNode
 }>) {
-  return <>{children}</>;
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return <>{children}</>
+  }
+
+  const { data: shop } = await supabase
+    .from('shops')
+    .select('name, logo_url')
+    .eq('owner_id', user.id)
+    .single()
+
+  return (
+    <AdminShell shopName={shop?.name ?? '내 가게'} logoUrl={shop?.logo_url}>
+      {children}
+    </AdminShell>
+  )
 }
