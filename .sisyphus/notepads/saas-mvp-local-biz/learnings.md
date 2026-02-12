@@ -79,3 +79,61 @@ npm run dev
 ### Next Task Dependencies
 - Task 2-8 can proceed with mock data if Docker unavailable
 - Full integration testing requires Docker + Supabase local instance
+
+## 2026-02-12 Task 3: Product CRUD
+
+### Storage
+- Supabase Storage: product-images bucket (public)
+- Migration: `20260212220000_product_images_bucket_and_rls.sql`
+- Max image size: 5MB, single image per product
+
+### Currency Formatting
+- `formatKoreanWon(amount)` → `₩150,000` (toLocaleString('ko-KR'))
+- Input accepts plain numbers, display shows formatted
+- Hidden input passes raw numeric value to server action
+
+### Product Form Pattern
+- Shared `ProductForm` component for create & edit
+- Server action bound with `.bind(null, productId)` for edit
+- Price input: visible formatted field + hidden raw value field
+- Deadline: `datetime-local` input with manual ISO→local formatting
+
+### Validation
+- Server-side: title required, price > 0
+- max_quantity >= reserved_count (edit only)
+- Korean error messages returned as `{ error: string }`
+- Client shows errors via toast + inline error box
+
+### RLS Fix
+- Admin needs to see inactive products (is_active=false)
+- Added "Shop owners can view all own products" policy (subquery check)
+- Without this, product list page would be empty for deactivated items
+
+### Activation Toggle
+- Custom toggle button (not shadcn Switch - not installed)
+- Inline CSS for state colors (stone-900 active, stone-300 inactive)
+- Immediate server action call with optimistic state
+
+### Expired Products
+- Client-side date comparison: `new Date(deadline) < new Date()`
+- Shows "마감" badge with Clock icon
+- No cron needed
+
+### File Structure
+```
+app/admin/products/
+├── page.tsx           (server: fetch products for shop)
+├── product-list.tsx   (client: card list with filters & toggle)
+├── product-form.tsx   (client: shared form component)
+├── actions.ts         (server actions: create, update, toggle)
+├── new/
+│   └── page.tsx       (renders ProductForm)
+└── [id]/
+    └── edit/
+        └── page.tsx   (server: fetch product, renders ProductForm)
+```
+
+### QA Notes
+- Supabase not running (no Docker) — full e2e QA blocked
+- Build passes cleanly, all routes compile
+- Auth guard redirects to /admin/login correctly
