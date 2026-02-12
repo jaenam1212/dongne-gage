@@ -1,16 +1,13 @@
-import type { Metadata } from "next";
-
-export const metadata: Metadata = {
-  title: "가게 예약",
-  description: "우리 동네 가게 상품 예약",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
-  themeColor: "#ffffff",
-};
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+}
 
 export default function ShopLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.ReactNode
 }>) {
-  return <>{children}</>;
+  return <>{children}</>
 }

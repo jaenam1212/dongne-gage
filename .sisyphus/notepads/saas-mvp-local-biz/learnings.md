@@ -175,3 +175,55 @@ app/admin/products/
 - WSL2 installed (no-distribution) but needs system reboot
 - Full Supabase integration testing blocked until reboot
 - Partial QA completed: auth redirect works, login form works, error handling verified
+
+## Task 4 - Storefront & Reservation System
+
+### Patterns Used
+- `generateMetadata()` for dynamic OG tags per page (shop + product pages)
+- In-memory rate limiting via `Map<IP, {count, resetTime}>` in API route handler (simpler than Edge middleware for single endpoint)
+- `supabase.rpc('create_reservation', ...)` for atomic reservation creation
+- `notFound()` from `next/navigation` for 404 handling when shop/product not found
+- Privacy consent with Radix Checkbox + collapsible policy text
+
+### Conventions Maintained
+- Stone color palette throughout (stone-900 primary, stone-50 bg)
+- Mobile-first responsive with 768px (md:) breakpoint
+- Korean UI labels for all user-facing text
+- `formatKoreanWon()` for currency display
+- `createClient()` from `lib/supabase/server.ts` for server components
+- shadcn/ui components: Button, Input, Label, Textarea, Checkbox
+- react-hot-toast for notifications
+- Rounded-2xl cards with border-stone-200 and shadow-sm
+
+### Phone Validation
+- Regex: `/^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$/` (accepts with/without dashes)
+- Normalized to 11 digits before DB save: `phone.replace(/-/g, '')`
+
+### Rate Limiting
+- IP-based: 10 req/min per IP
+- Applied only to POST /api/reservations
+- Returns 429 with Korean error message
+- In-memory Map (resets on server restart - acceptable for MVP)
+
+### Known Issues
+- Docker not installed → Supabase local unavailable → DB-dependent QA scenarios cannot be fully tested
+- Shop pages return 404 when Supabase is unavailable (expected - `notFound()` called when query returns null)
+- Rate limiting verified: first 10 requests pass through, 11+ return 429
+
+### Build
+- `npx tsc --noEmit` → ZERO errors
+- `npm run build` → ZERO errors, all routes registered correctly
+- Next.js 16.1.6 shows "middleware" deprecation warning (recommends "proxy") - existing from Task 1, not our concern
+
+### Files Created
+- `components/customer/product-card.tsx` - product display card with badges (매진/마감)
+- `components/customer/reservation-form.tsx` - full reservation flow with validation + success page
+- `app/[shop-slug]/page.tsx` - shop storefront with dynamic metadata
+- `app/[shop-slug]/reserve/[product-id]/page.tsx` - reservation page with unavailability handling
+- `app/[shop-slug]/opengraph-image.tsx` - dynamic OG image generation
+- `app/api/reservations/route.ts` - reservation API with rate limiting + server-side validation
+- `app/not-found.tsx` - Korean 404 page
+
+### Files Modified
+- `app/[shop-slug]/layout.tsx` - removed static metadata (moved to page-level generateMetadata), added viewport export
+- `components/ui/checkbox.tsx` - installed via shadcn CLI
