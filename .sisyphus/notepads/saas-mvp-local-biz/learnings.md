@@ -137,3 +137,41 @@ app/admin/products/
 - Supabase not running (no Docker) — full e2e QA blocked
 - Build passes cleanly, all routes compile
 - Auth guard redirects to /admin/login correctly
+
+## 2026-02-12 Task 2: Admin Dashboard + Auth
+
+### Supabase Auth
+- Server-side with middleware pattern (@supabase/ssr)
+- Three client files: server.ts (Server Components), client.ts (Client Components), middleware.ts (Next.js middleware)
+- Empty catch in server.ts setAll is intentional (Supabase official pattern)
+- Middleware redirects: unauthenticated → /admin/login, authenticated on /admin/login → /admin/dashboard
+
+### Admin Layout
+- Desktop: 240px left sidebar with nav + logout
+- Mobile (< 768px): sticky top header + fixed bottom tab navigation
+- `AdminShell` client component wraps all authenticated admin pages
+- Admin layout.tsx (Server Component) checks auth, fetches shop, renders AdminShell or bare children (login)
+
+### Components & Pages
+- shadcn/ui components: Button, Input, Label, Textarea
+- react-hot-toast for success/error toast notifications
+- Login: Client component with form action + useState for error/loading
+- Dashboard: Server component with today's reservation count + recent 5
+- Settings: Server component (data fetch) + Client form component (SettingsForm)
+- Logo upload: Hidden file input + preview with object URL
+
+### Storage
+- Supabase Storage bucket: shop-logos (public)
+- Upload pattern: `{shop.id}-{timestamp}.{ext}` filename
+- Policies: authenticated insert, public select
+
+### Test Data
+- Seed file: supabase/seed.sql
+- Test credentials: admin@test.com / TestPass123!
+- Test shop: 테스트 정육점 (slug: test-butcher)
+
+### Docker Status
+- Installed Docker Desktop via winget during this task
+- WSL2 installed (no-distribution) but needs system reboot
+- Full Supabase integration testing blocked until reboot
+- Partial QA completed: auth redirect works, login form works, error handling verified
