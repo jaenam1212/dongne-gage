@@ -3,11 +3,15 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 1,
             "patches": [
                 {
                     "date": 1770982396939,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1770984382805,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -7,13 +7,13 @@\n import toast from 'react-hot-toast'\n \n const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY\n \n-function urlBase64ToUint8Array(base64String: string): Uint8Array {\n+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {\n   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)\n   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')\n   const rawData = window.atob(base64)\n-  const output = new Uint8Array(rawData.length)\n+  const output = new Uint8Array(new ArrayBuffer(rawData.length))\n   for (let i = 0; i < rawData.length; ++i) output[i] = rawData.charCodeAt(i)\n   return output\n }\n \n"
                 }
             ],
             "date": 1770982396939,

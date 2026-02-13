@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Package } from 'lucide-react'
@@ -26,10 +26,10 @@ function formatDate(dateString: string): string {
   return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}`
 }
 
-export default function MyOrdersPage() {
+function MyOrdersContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const returnTo = searchParams.get('returnTo') // 주문 완료에서 왔을 때 상점 slug
+  const returnTo = searchParams.get('returnTo')
   const [orders, setOrders] = useState<StoredOrder[]>([])
   const [mounted, setMounted] = useState(false)
 
@@ -116,5 +116,29 @@ export default function MyOrdersPage() {
         )}
       </main>
     </div>
+  )
+}
+
+function MyOrdersFallback() {
+  return (
+    <div className="min-h-dvh bg-stone-50">
+      <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-stone-200 bg-white/80 backdrop-blur-lg px-4">
+        <div className="h-9 w-9 min-h-[44px] min-w-[44px]" />
+        <h1 className="text-lg font-bold text-stone-900">내 주문 내역</h1>
+      </header>
+      <main className="mx-auto max-w-md px-4 py-6">
+        <div className="rounded-2xl border border-stone-200 bg-white py-12 text-center">
+          <p className="text-sm text-stone-400">불러오는 중...</p>
+        </div>
+      </main>
+    </div>
+  )
+}
+
+export default function MyOrdersPage() {
+  return (
+    <Suspense fallback={<MyOrdersFallback />}>
+      <MyOrdersContent />
+    </Suspense>
   )
 }
