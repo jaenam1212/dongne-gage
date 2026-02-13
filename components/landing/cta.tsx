@@ -16,7 +16,7 @@ export function CTA() {
           size="lg"
           className="mt-8 bg-stone-900 text-white hover:bg-stone-800 h-12 px-8 text-base font-semibold"
         >
-          <Link href="/signup">무료로 시작하기</Link>
+          <Link href="/admin/login">로그인</Link>
         </Button>
       </div>
     </section>
