@@ -13,6 +13,11 @@ export async function login(formData: FormData) {
   })
 
   if (error) {
+    const msg = error.message
+    const rateLimitMatch = msg.match(/after (\d+) seconds?/i)
+    if (rateLimitMatch) {
+      return { error: `보안을 위해 ${rateLimitMatch[1]}초 후에 다시 시도해 주세요.` }
+    }
     return { error: '이메일 또는 비밀번호가 올바르지 않습니다.' }
   }
 

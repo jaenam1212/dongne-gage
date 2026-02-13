@@ -40,7 +40,9 @@ export async function createProduct(formData: FormData) {
       .from('product-images')
       .upload(fileName, imageFile)
 
-    if (uploadError) return { error: '이미지 업로드에 실패했습니다' }
+    if (uploadError) {
+      return { error: `이미지 업로드에 실패했습니다: ${uploadError.message}` }
+    }
 
     const { data: { publicUrl } } = supabase.storage
       .from('product-images')
@@ -51,6 +53,8 @@ export async function createProduct(formData: FormData) {
 
   const maxQuantityRaw = formData.get('maxQuantity') as string
   const deadlineRaw = formData.get('deadline') as string
+  const maxQtyNum = maxQuantityRaw ? parseInt(maxQuantityRaw, 10) : NaN
+  const max_quantity = Number.isNaN(maxQtyNum) || maxQtyNum <= 0 ? null : maxQtyNum
 
   const { error } = await supabase.from('products').insert({
     shop_id: shop.id,
@@ -58,7 +62,7 @@ export async function createProduct(formData: FormData) {
     description: (formData.get('description') as string) || null,
     price,
     image_url,
-    max_quantity: maxQuantityRaw ? parseInt(maxQuantityRaw) : null,
+    max_quantity,
     deadline: deadlineRaw || null,
     is_active: true,
   })
@@ -105,7 +109,8 @@ export async function updateProduct(productId: string, formData: FormData) {
   }
 
   const maxQuantityRaw = formData.get('maxQuantity') as string
-  const newMaxQuantity = maxQuantityRaw ? parseInt(maxQuantityRaw) : null
+  const maxQtyNum = maxQuantityRaw ? parseInt(maxQuantityRaw, 10) : NaN
+  const newMaxQuantity = Number.isNaN(maxQtyNum) || maxQtyNum <= 0 ? null : maxQtyNum
 
   if (newMaxQuantity !== null && product.reserved_count > newMaxQuantity) {
     return {
@@ -125,7 +130,9 @@ export async function updateProduct(productId: string, formData: FormData) {
       .from('product-images')
       .upload(fileName, imageFile)
 
-    if (uploadError) return { error: '이미지 업로드에 실패했습니다' }
+    if (uploadError) {
+      return { error: `이미지 업로드에 실패했습니다: ${uploadError.message}` }
+    }
 
     const { data: { publicUrl } } = supabase.storage
       .from('product-images')

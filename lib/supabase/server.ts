@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 
 export async function createClient() {
@@ -25,4 +26,12 @@ export async function createClient() {
       },
     }
   )
+}
+
+/** RLS를 거치지 않는 서버 전용 클라이언트. 가입 직후 가게 생성 등 관리자 작업에만 사용. */
+export function createServiceRoleClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY is required for createServiceRoleClient')
+  return createSupabaseClient(url, key)
 }

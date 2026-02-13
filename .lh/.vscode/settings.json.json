@@ -1,0 +1,18 @@
+{
+    "sourceFile": ".vscode/settings.json",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1770913612239,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1770913612239,
+            "name": "Commit-0",
+            "content": "{\n    \"workbench.colorCustomizations\": {\n        \"[Default Dark Modern]\": {\n            \"tab.activeBorderTop\": \"#00FF00\",\n            \"tab.unfocusedActiveBorderTop\": \"#00FF0088\",\n            \"textCodeBlock.background\": \"#00000055\"\n        },\n        \"editor.wordHighlightStrongBorder\": \"#FF6347\",\n        \"editor.wordHighlightBorder\": \"#FFD700\",\n        \"editor.selectionHighlightBorder\": \"#A9A9A9\",\n        \"minimap.background\": \"#00000000\",\n        \"scrollbar.shadow\": \"#00000000\"\n    }\n}"
+        }
+    ]
+}

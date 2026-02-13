@@ -1,0 +1,18 @@
+{
+    "sourceFile": "lib/supabase/server.ts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1770977476870,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1770977476870,
+            "name": "Commit-0",
+            "content": "import { createServerClient } from '@supabase/ssr'\nimport { createClient as createSupabaseClient } from '@supabase/supabase-js'\nimport { cookies } from 'next/headers'\n\nexport async function createClient() {\n  const cookieStore = await cookies()\n\n  return createServerClient(\n    process.env.NEXT_PUBLIC_SUPABASE_URL!,\n    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,\n    {\n      cookies: {\n        getAll() {\n          return cookieStore.getAll()\n        },\n        setAll(cookiesToSet) {\n          try {\n            cookiesToSet.forEach(({ name, value, options }) =>\n              cookieStore.set(name, value, options)\n            )\n          } catch {\n            // The `setAll` method was called from a Server Component.\n            // This can be ignored if you have middleware refreshing sessions.\n          }\n        },\n      },\n    }\n  )\n}\n\n/** RLS를 거치지 않는 서버 전용 클라이언트. 가입 직후 가게 생성 등 관리자 작업에만 사용. */\nexport function createServiceRoleClient() {\n  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!\n  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!\n  if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY is required for createServiceRoleClient')\n  return createSupabaseClient(url, key)\n}\n"
+        }
+    ]
+}

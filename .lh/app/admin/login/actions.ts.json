@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/admin/login/actions.ts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1770977385828,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1770977385828,
+            "name": "Commit-0",
+            "content": "'use server'\n\nimport { revalidatePath } from 'next/cache'\nimport { redirect } from 'next/navigation'\nimport { createClient } from '@/lib/supabase/server'\n\nexport async function login(formData: FormData) {\n  const supabase = await createClient()\n\n  const { error } = await supabase.auth.signInWithPassword({\n    email: formData.get('email') as string,\n    password: formData.get('password') as string,\n  })\n\n  if (error) {\n    const msg = error.message\n    const rateLimitMatch = msg.match(/after (\\d+) seconds?/i)\n    if (rateLimitMatch) {\n      return { error: `보안을 위해 ${rateLimitMatch[1]}초 후에 다시 시도해 주세요.` }\n    }\n    return { error: '이메일 또는 비밀번호가 올바르지 않습니다.' }\n  }\n\n  revalidatePath('/admin', 'layout')\n  redirect('/admin/dashboard')\n}\n\nexport async function logout() {\n  const supabase = await createClient()\n  await supabase.auth.signOut()\n  redirect('/admin/login')\n}\n"
+        }
+    ]
+}

@@ -1,0 +1,22 @@
+{
+    "sourceFile": "next.config.ts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 1,
+            "patches": [
+                {
+                    "date": 1770977242879,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1770978704911,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -4,7 +4,12 @@\n const nextConfig: NextConfig = {\n   turbopack: {\n     root: path.resolve(process.cwd()),\n   },\n+  experimental: {\n+    serverActions: {\n+      bodySizeLimit: '6mb', // 상품 이미지 최대 5MB 허용\n+    },\n+  },\n };\n \n export default nextConfig;\n"
+                }
+            ],
+            "date": 1770977242879,
+            "name": "Commit-0",
+            "content": "import type { NextConfig } from \"next\";\nimport path from \"path\";\n\nconst nextConfig: NextConfig = {\n  turbopack: {\n    root: path.resolve(process.cwd()),\n  },\n};\n\nexport default nextConfig;\n"
+        }
+    ]
+}

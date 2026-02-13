@@ -83,8 +83,19 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createClient()
 
+  const { data: product } = await supabase
+    .from('products')
+    .select('shop_id')
+    .eq('id', product_id)
+    .single()
+
+  if (!product?.shop_id) {
+    return NextResponse.json({ error: '상품을 찾을 수 없습니다' }, { status: 404 })
+  }
+
   const { data, error } = await supabase.rpc('create_reservation', {
     p_product_id: product_id,
+    p_shop_id: product.shop_id,
     p_customer_name: customer_name.trim(),
     p_customer_phone: normalizedPhone,
     p_quantity: quantity,
