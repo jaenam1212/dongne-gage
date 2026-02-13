@@ -12,6 +12,7 @@ import toast, { Toaster } from 'react-hot-toast'
 interface Shop {
   id: string
   name: string
+  slug: string
   description: string | null
   phone: string | null
   address: string | null
@@ -56,6 +57,15 @@ export function SettingsForm({ shop }: { shop: Shop | null }) {
       />
       <form action={handleSubmit} className="space-y-5">
         <input type="hidden" name="current_logo_url" value={shop?.logo_url ?? ''} />
+
+        {shop?.slug && (
+          <div className="rounded-2xl border border-stone-200 bg-stone-50 p-5">
+            <p className="text-xs font-medium text-stone-500">고객이 들어가는 URL</p>
+            <p className="mt-1 text-sm font-semibold text-stone-900 break-all">
+              {process.env.NEXT_PUBLIC_SITE_URL || 'https://dongnegage.com'}/{shop.slug}
+            </p>
+          </div>
+        )}
 
         <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm space-y-5">
           <div className="space-y-2">

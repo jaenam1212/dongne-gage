@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 5,
+            "activePatchIndex": 7,
             "patches": [
                 {
                     "date": 1770977385852,
@@ -28,6 +28,14 @@
                 {
                     "date": 1770978110447,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -30,23 +30,33 @@\n   if (existingShop) {\n     return { error: '이미 사용중인 주소입니다. 다른 주소를 입력해주세요.' }\n   }\n \n-  // Admin API로 유저 생성 — 이메일 발송 없음 (rate limit 회피)\n-  const { data: authData, error: authError } = await admin.auth.admin.createUser({\n+  const supabase = await createClient()\n+\n+  // signUp 사용. 이메일 한도 방지: Supabase 대시보드 → Authentication → Providers → Email → \"Confirm email\" 끄기\n+  const { data: authData, error: authError } = await supabase.auth.signUp({\n     email,\n     password,\n-    email_confirm: true,\n   })\n \n   if (authError || !authData.user) {\n     const msg = authError?.message ?? '가입에 실패했습니다'\n+    if (/email rate limit|rate limit exceeded/i.test(msg)) {\n+      return {\n+        error:\n+          '이메일 발송 한도 초과입니다. Supabase 대시보드에서 Authentication → Providers → Email → \"Confirm email\"을 끄고, 1시간 후 다시 시도해 주세요.',\n+      }\n+    }\n     if (/already registered|already exists|duplicate/i.test(msg)) {\n       return { error: '이미 가입된 이메일입니다. 로그인해 주세요.' }\n     }\n     return { error: msg }\n   }\n \n+  // 가입 직후 쿠키에 세션 없어 RLS 통과 위해 확인 처리\n+  await admin.auth.admin.updateUserById(authData.user.id, { email_confirm: true })\n+\n   const { error: shopError } = await admin.from('shops').insert({\n     owner_id: authData.user.id,\n     slug,\n     name: shopName,\n@@ -57,10 +67,8 @@\n   if (shopError) {\n     return { error: `가게 생성에 실패했습니다: ${shopError.message}` }\n   }\n \n-  // 세션 쿠키 설정 (바로 로그인된 상태로)\n-  const supabase = await createClient()\n   await supabase.auth.signInWithPassword({ email, password })\n \n   redirect('/admin/dashboard')\n }\n"
+                },
+                {
+                    "date": 1770979863862,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -27,9 +27,9 @@\n     .eq('slug', slug)\n     .maybeSingle()\n \n   if (existingShop) {\n-    return { error: '이미 사용중인 주소입니다. 다른 주소를 입력해주세요.' }\n+    return { error: '이미 사용중인 URL입니다. 다른 URL을 입력해주세요.' }\n   }\n \n   const supabase = await createClient()\n \n"
+                },
+                {
+                    "date": 1770980104278,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -17,8 +17,13 @@\n   if (password.length < 8) {\n     return { error: '비밀번호는 최소 8자 이상이어야 합니다' }\n   }\n \n+  // 가게 URL은 영문 소문자, 숫자, 하이픈만 허용 (한글·특수문자 불가)\n+  if (!/^[a-z0-9\\-]+$/.test(slug) || slug.length < 1) {\n+    return { error: '가게 URL은 영문 소문자, 숫자, 하이픈(-)만 사용할 수 있습니다.' }\n+  }\n+\n   const admin = createServiceRoleClient()\n \n   // Slug 중복 검사 (RLS 없이 전체 조회)\n   const { data: existingShop } = await admin\n"
                 }
             ],
             "date": 1770977385852,

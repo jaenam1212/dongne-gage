@@ -17,12 +17,16 @@ export default function SignupPage() {
   const [suggestedSlug, setSuggestedSlug] = useState('')
   const [error, setError] = useState<string | null>(null)
 
+  // 가게 URL은 영문 소문자, 숫자, 하이픈만 허용 (한글 불가)
   function generateSlug(name: string): string {
-    return name
+    const raw = name
       .toLowerCase()
       .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9\-가-힣]/g, '')
+      .replace(/[^a-z0-9\-]/g, '')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
       .slice(0, 50)
+    return raw || 'shop'
   }
 
   function handleShopNameChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -119,18 +123,21 @@ export default function SignupPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="slug">가게 주소 <span className="text-red-500">*</span></Label>
+                <Label htmlFor="slug">가게 URL <span className="text-red-500">*</span></Label>
                 <Input
                   id="slug"
                   name="slug"
                   required
                   value={suggestedSlug}
-                  onChange={(e) => setSuggestedSlug(e.target.value)}
-                  placeholder="shop-url"
+                  onChange={(e) => {
+                    const v = e.target.value.toLowerCase().replace(/[^a-z0-9\-]/g, '')
+                    setSuggestedSlug(v)
+                  }}
+                  placeholder="my-shop"
                   className="border-stone-200 bg-stone-50 focus-visible:ring-stone-400"
                 />
                 <p className="text-xs text-stone-400">
-                  고객이 접속할 주소: dongnegage.com/{suggestedSlug || 'your-shop'}
+                  영문 소문자, 숫자, 하이픈(-)만 사용 가능 · dongnegage.com/{suggestedSlug || 'my-shop'}
                 </p>
               </div>
 

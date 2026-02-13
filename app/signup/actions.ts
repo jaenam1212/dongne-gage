@@ -18,6 +18,11 @@ export async function signUp(formData: FormData) {
     return { error: '비밀번호는 최소 8자 이상이어야 합니다' }
   }
 
+  // 가게 URL은 영문 소문자, 숫자, 하이픈만 허용 (한글·특수문자 불가)
+  if (!/^[a-z0-9\-]+$/.test(slug) || slug.length < 1) {
+    return { error: '가게 URL은 영문 소문자, 숫자, 하이픈(-)만 사용할 수 있습니다.' }
+  }
+
   const admin = createServiceRoleClient()
 
   // Slug 중복 검사 (RLS 없이 전체 조회)
@@ -28,7 +33,7 @@ export async function signUp(formData: FormData) {
     .maybeSingle()
 
   if (existingShop) {
-    return { error: '이미 사용중인 주소입니다. 다른 주소를 입력해주세요.' }
+    return { error: '이미 사용중인 URL입니다. 다른 URL을 입력해주세요.' }
   }
 
   const supabase = await createClient()
