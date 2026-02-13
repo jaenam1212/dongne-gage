@@ -4,11 +4,16 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import webpush from 'web-push'
 
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-)
+function ensureVapidDetails(): boolean {
+  const subject = process.env.VAPID_SUBJECT
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+  const privateKey = process.env.VAPID_PRIVATE_KEY
+  if (subject && publicKey && privateKey) {
+    webpush.setVapidDetails(subject, publicKey, privateKey)
+    return true
+  }
+  return false
+}
 
 const STATUS_MESSAGES = {
   confirmed: '예약이 확인되었습니다',
@@ -54,7 +59,7 @@ export async function updateReservationStatus(
       .eq('customer_phone', reservation.customer_phone)
       .single()
 
-    if (subscription) {
+    if (subscription && ensureVapidDetails()) {
       await webpush.sendNotification(
         {
           endpoint: subscription.endpoint,

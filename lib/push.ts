@@ -1,12 +1,16 @@
 import webpush from 'web-push'
 import { createClient } from '@/lib/supabase/server'
 
-// Configure web-push with VAPID keys
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-)
+function ensureVapidDetails() {
+  const subject = process.env.VAPID_SUBJECT
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+  const privateKey = process.env.VAPID_PRIVATE_KEY
+  if (subject && publicKey && privateKey) {
+    webpush.setVapidDetails(subject, publicKey, privateKey)
+    return true
+  }
+  return false
+}
 
 export async function sendPushToShop(
   shopId: string,
@@ -24,6 +28,7 @@ export async function sendPushToShop(
     .eq('shop_id', shopId)
 
   if (!subscriptions || subscriptions.length === 0) return
+  if (!ensureVapidDetails()) return
 
   const results = await Promise.allSettled(
     subscriptions.map(async (sub) => {
