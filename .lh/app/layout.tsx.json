@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/layout.tsx",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1770981613162,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1770981613162,
+            "name": "Commit-0",
+            "content": "import type { Metadata, Viewport } from \"next\";\nimport { Geist, Geist_Mono } from \"next/font/google\";\nimport \"./globals.css\";\nimport { ServiceWorkerRegister } from \"@/components/customer/sw-register\";\n\nconst geistSans = Geist({\n  variable: \"--font-geist-sans\",\n  subsets: [\"latin\"],\n});\n\nconst geistMono = Geist_Mono({\n  variable: \"--font-geist-mono\",\n  subsets: [\"latin\"],\n});\n\nexport const metadata: Metadata = {\n  title: \"동네 가게\",\n  description: \"우리 동네 가게 예약 서비스\",\n  manifest: \"/manifest.json\",\n  appleWebApp: {\n    capable: true,\n    statusBarStyle: \"black-translucent\",\n    title: \"동네 가게\",\n  },\n};\n\nexport const viewport: Viewport = {\n  themeColor: \"#1c1917\",\n};\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"ko\">\n      <head>\n        <meta name=\"apple-mobile-web-app-capable\" content=\"yes\" />\n        <meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\" />\n        <meta name=\"apple-mobile-web-app-title\" content=\"동네 가게\" />\n      </head>\n      <body\n        className={`${geistSans.variable} ${geistMono.variable} antialiased`}\n      >\n        <ServiceWorkerRegister />\n        {children}\n      </body>\n    </html>\n  );\n}\n"
+        }
+    ]
+}

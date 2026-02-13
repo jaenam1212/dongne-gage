@@ -1,0 +1,18 @@
+{
+    "sourceFile": "components/customer/pwa-tutorial-link.tsx",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1770981473375,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1770981473375,
+            "name": "Commit-0",
+            "content": "'use client'\n\nimport { useState, useEffect } from 'react'\nimport Link from 'next/link'\nimport { PlusCircle } from 'lucide-react'\n\nexport function PwaTutorialLink({ shopSlug }: { shopSlug: string }) {\n  const [isIOS, setIsIOS] = useState(false)\n\n  useEffect(() => {\n    const ua = navigator.userAgent\n    setIsIOS(/iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream)\n  }, [])\n\n  if (!isIOS) return null\n\n  return (\n    <Link\n      href={`/${shopSlug}/install-guide`}\n      className=\"inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-medium text-stone-700 shadow-sm transition-colors hover:bg-stone-50 hover:text-stone-900\"\n    >\n      <PlusCircle className=\"h-4 w-4 text-stone-500\" />\n      홈 화면에 추가하는 방법\n    </Link>\n  )\n}\n"
+        }
+    ]
+}

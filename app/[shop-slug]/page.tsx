@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { ProductCard } from '@/components/customer/product-card'
+import { PwaTutorialLink } from '@/components/customer/pwa-tutorial-link'
 import { Store, Phone } from 'lucide-react'
 
 interface Props {
@@ -93,12 +94,15 @@ export default async function ShopPage({ params }: Props) {
               )}
             </div>
           </div>
-          {shop.phone && (
-            <div className="mt-4 inline-flex items-center gap-2 rounded-lg bg-stone-50 px-3 py-1.5 text-sm text-stone-600">
-              <Phone className="h-3.5 w-3.5" />
-              {shop.phone}
-            </div>
-          )}
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {shop.phone && (
+              <div className="inline-flex items-center gap-2 rounded-lg bg-stone-50 px-3 py-1.5 text-sm text-stone-600">
+                <Phone className="h-3.5 w-3.5" />
+                {shop.phone}
+              </div>
+            )}
+            <PwaTutorialLink shopSlug={slug} />
+          </div>
         </div>
       </header>
 

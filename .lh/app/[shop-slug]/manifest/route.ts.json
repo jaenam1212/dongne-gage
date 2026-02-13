@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/[shop-slug]/manifest/route.ts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1770981613208,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1770981613208,
+            "name": "Commit-0",
+            "content": "import { NextRequest } from 'next/server'\n\nconst baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://dongnegage.com'\n\nexport async function GET(\n  _request: NextRequest,\n  { params }: { params: Promise<{ 'shop-slug': string }> }\n) {\n  const { 'shop-slug': slug } = await params\n  const origin = slug ? `/${slug}` : '/'\n\n  const manifest = {\n    name: '동네 가게',\n    short_name: '동네가게',\n    description: '우리 동네 예약 서비스',\n    start_url: origin,\n    scope: origin,\n    display: 'standalone' as const,\n    background_color: '#fafaf9',\n    theme_color: '#1c1917',\n    orientation: 'portrait' as const,\n    lang: 'ko',\n    icons: [\n      { src: `${baseUrl}/icon-192.svg`, sizes: '192x192', type: 'image/svg+xml', purpose: 'any maskable' as const },\n      { src: `${baseUrl}/icon-512.svg`, sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' as const },\n    ],\n  }\n\n  return new Response(JSON.stringify(manifest), {\n    headers: {\n      'Content-Type': 'application/manifest+json',\n      'Cache-Control': 'public, max-age=3600',\n    },\n  })\n}\n"
+        }
+    ]
+}

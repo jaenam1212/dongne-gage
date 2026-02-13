@@ -9,21 +9,13 @@ import { Checkbox } from '@/components/ui/checkbox'
 export default function InstallGuidePage() {
   const router = useRouter()
   const [dontShowAgain, setDontShowAgain] = useState(false)
-  const [isIOS, setIsIOS] = useState(false)
-  const [isSafari, setIsSafari] = useState(false)
+  const [isIOS, setIsIOS] = useState<boolean | null>(null)
 
   useEffect(() => {
     const ua = navigator.userAgent
     const iosCheck = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream
-    const safariCheck = /^((?!chrome|android).)*safari/i.test(ua)
-    
     setIsIOS(iosCheck)
-    setIsSafari(safariCheck)
-
-    if (!iosCheck || !safariCheck) {
-      router.back()
-    }
-  }, [router])
+  }, [])
 
   const handleClose = () => {
     if (dontShowAgain) {
@@ -32,8 +24,29 @@ export default function InstallGuidePage() {
     router.back()
   }
 
-  if (!isIOS || !isSafari) {
-    return null
+  // 아직 클라이언트에서 OS 판별 전
+  if (isIOS === null) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-50">
+        <p className="text-sm text-stone-400">로딩 중...</p>
+      </div>
+    )
+  }
+
+  // iOS가 아니면 안내만 표시 (링크로 접속한 경우)
+  if (!isIOS) {
+    return (
+      <div className="min-h-dvh bg-stone-50 flex flex-col items-center justify-center px-4 py-12">
+        <div className="rounded-2xl border border-stone-200 bg-white p-6 text-center max-w-sm">
+          <p className="text-sm text-stone-600">
+            홈 화면에 추가하기는 <strong>iPhone, iPad</strong>에서 접속 시 이용할 수 있어요.
+          </p>
+          <Button onClick={handleClose} className="mt-4 w-full bg-stone-900 text-white hover:bg-stone-800">
+            가게로 돌아가기
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -70,7 +83,7 @@ export default function InstallGuidePage() {
                 <p className="font-semibold text-stone-900">공유 버튼 탭</p>
               </div>
               <p className="mt-1 text-sm text-stone-500">
-                Safari 하단의 공유 버튼을 눌러주세요
+                브라우저 하단의 공유 버튼(□↑)을 눌러주세요
               </p>
             </div>
           </div>
