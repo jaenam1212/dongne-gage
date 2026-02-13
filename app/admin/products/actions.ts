@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { sendPushToShop } from '@/lib/push'
+import { fromKSTToISOUTC } from '@/lib/datetime-kst'
 
 export async function createProduct(formData: FormData) {
   const supabase = await createClient()
@@ -26,6 +27,9 @@ export async function createProduct(formData: FormData) {
   }
   if (!price || price <= 0) {
     return { error: '가격은 0원보다 커야 합니다' }
+  }
+  if (price > 10_000_000) {
+    return { error: '상품 금액은 1,000만원을 초과할 수 없습니다' }
   }
 
   let image_url: string | null = null
@@ -58,6 +62,7 @@ export async function createProduct(formData: FormData) {
   const max_quantity = Number.isNaN(maxQtyNum) || maxQtyNum <= 0 ? null : maxQtyNum
   const perCustomerNum = maxPerCustomerRaw ? parseInt(maxPerCustomerRaw, 10) : NaN
   const max_quantity_per_customer = Number.isNaN(perCustomerNum) || perCustomerNum < 1 ? null : perCustomerNum
+  const deadline = deadlineRaw ? fromKSTToISOUTC(deadlineRaw) : null
 
   const { error } = await supabase.from('products').insert({
     shop_id: shop.id,
@@ -67,7 +72,7 @@ export async function createProduct(formData: FormData) {
     image_url,
     max_quantity,
     max_quantity_per_customer,
-    deadline: deadlineRaw || null,
+    deadline,
     is_active: true,
   })
 
@@ -111,6 +116,9 @@ export async function updateProduct(productId: string, formData: FormData) {
   if (!price || price <= 0) {
     return { error: '가격은 0원보다 커야 합니다' }
   }
+  if (price > 10_000_000) {
+    return { error: '상품 금액은 1,000만원을 초과할 수 없습니다' }
+  }
 
   const maxQuantityRaw = formData.get('maxQuantity') as string
   const maxQtyNum = maxQuantityRaw ? parseInt(maxQuantityRaw, 10) : NaN
@@ -149,6 +157,7 @@ export async function updateProduct(productId: string, formData: FormData) {
   const perCustomerNum = maxPerCustomerRaw ? parseInt(maxPerCustomerRaw, 10) : NaN
   const max_quantity_per_customer = Number.isNaN(perCustomerNum) || perCustomerNum < 1 ? null : perCustomerNum
   const deadlineRaw = formData.get('deadline') as string
+  const deadline = deadlineRaw ? fromKSTToISOUTC(deadlineRaw) : null
 
   const { error } = await supabase
     .from('products')
@@ -159,7 +168,7 @@ export async function updateProduct(productId: string, formData: FormData) {
       image_url,
       max_quantity: newMaxQuantity,
       max_quantity_per_customer,
-      deadline: deadlineRaw || null,
+      deadline,
     })
     .eq('id', productId)
 

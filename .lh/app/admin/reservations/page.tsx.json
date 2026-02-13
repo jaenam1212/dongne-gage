@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/admin/reservations/page.tsx",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1770985534717,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1770985534717,
+            "name": "Commit-0",
+            "content": "import { createClient } from '@/lib/supabase/server'\nimport { ReservationList } from './reservation-list'\nimport { redirect } from 'next/navigation'\nimport { getTodayKST, getKSTDayStartUTC, getKSTDayEndExclusiveUTC } from '@/lib/datetime-kst'\n\nexport default async function ReservationsPage({\n  searchParams,\n}: {\n  searchParams: Promise<{ date?: string; status?: string }>\n}) {\n  const { date, status } = await searchParams\n  const supabase = await createClient()\n  const { data: { user } } = await supabase.auth.getUser()\n\n  if (!user) {\n    redirect('/admin/login')\n  }\n\n  const { data: shop } = await supabase\n    .from('shops')\n    .select('id, slug')\n    .eq('owner_id', user.id)\n    .single()\n\n  if (!shop) {\n    redirect('/admin/login')\n  }\n\n  let query = supabase\n    .from('reservations')\n    .select('*, products(title, price, image_url)')\n    .eq('shop_id', shop.id)\n    .order('created_at', { ascending: false })\n\n  if (date === 'today') {\n    const today = getTodayKST()\n    query = query.gte('created_at', getKSTDayStartUTC(today)).lt('created_at', getKSTDayEndExclusiveUTC(today))\n  }\n\n  if (status && status !== 'all') {\n    query = query.eq('status', status)\n  }\n\n  const { data: reservations } = await query\n\n  return <ReservationList reservations={reservations ?? []} shopSlug={shop.slug} />\n}\n"
+        }
+    ]
+}

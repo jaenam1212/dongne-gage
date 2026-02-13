@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { ReservationList } from './reservation-list'
 import { redirect } from 'next/navigation'
+import { getTodayKST, getKSTDayStartUTC, getKSTDayEndExclusiveUTC } from '@/lib/datetime-kst'
 
 export default async function ReservationsPage({
   searchParams,
@@ -32,8 +33,8 @@ export default async function ReservationsPage({
     .order('created_at', { ascending: false })
 
   if (date === 'today') {
-    const today = new Date().toISOString().split('T')[0]
-    query = query.gte('created_at', today)
+    const today = getTodayKST()
+    query = query.gte('created_at', getKSTDayStartUTC(today)).lt('created_at', getKSTDayEndExclusiveUTC(today))
   }
 
   if (status && status !== 'all') {

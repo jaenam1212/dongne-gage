@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { Plus, Pencil, Package, Clock, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatKoreanWon } from '@/lib/utils'
+import { formatDateTimeKST } from '@/lib/datetime-kst'
 import { toggleProductActive, deleteProducts } from './actions'
 import toast, { Toaster } from 'react-hot-toast'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -41,9 +42,7 @@ function getRemainingQuantity(product: Product): string {
 }
 
 function formatDeadline(deadline: string | null): string {
-  if (!deadline) return ''
-  const d = new Date(deadline)
-  return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
+  return formatDateTimeKST(deadline)
 }
 
 export function ProductList({

@@ -7,6 +7,7 @@ import { Calendar, Package, FileDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { formatKoreanWon } from '@/lib/utils'
+import { formatDateKST, formatDateTimeKST, formatMonthDayKST, getTodayKST } from '@/lib/datetime-kst'
 import { updateReservationStatus, updateReservationsStatusBulk } from './actions'
 import toast, { Toaster } from 'react-hot-toast'
 
@@ -67,7 +68,7 @@ function buildReservationsCsv(reservations: Reservation[]): string {
     const price = product?.price ?? 0
     const amount = price * r.quantity
     const dateStr = r.created_at ? formatDateTime(r.created_at) : ''
-    const pickupStr = r.pickup_date ? new Date(r.pickup_date).toLocaleDateString('ko-KR') : ''
+    const pickupStr = r.pickup_date ? formatDateKST(r.pickup_date) : ''
     return [
       dateStr,
       title,
@@ -85,13 +86,11 @@ function buildReservationsCsv(reservations: Reservation[]): string {
 }
 
 function formatDate(dateString: string): string {
-  const d = new Date(dateString)
-  return `${d.getMonth() + 1}/${d.getDate()}`
+  return formatMonthDayKST(dateString)
 }
 
 function formatDateTime(dateString: string): string {
-  const d = new Date(dateString)
-  return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
+  return formatDateTimeKST(dateString)
 }
 
 export function ReservationList({
@@ -135,7 +134,7 @@ export function ReservationList({
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `예약목록_${new Date().toISOString().slice(0, 10)}.csv`
+    a.download = `예약목록_${getTodayKST()}.csv`
     a.click()
     URL.revokeObjectURL(url)
     toast.success('엑셀 파일이 다운로드되었습니다')

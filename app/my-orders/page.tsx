@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Package } from 'lucide-react'
 import { formatKoreanWon } from '@/lib/utils'
 import { getMyOrders, type StoredOrder } from '@/lib/my-orders-storage'
+import { formatDateKST } from '@/lib/datetime-kst'
 
 const STATUS_LABELS: Record<StoredOrder['status'], string> = {
   pending: '대기중',
@@ -22,8 +23,7 @@ const STATUS_STYLES: Record<StoredOrder['status'], string> = {
 }
 
 function formatDate(dateString: string): string {
-  const d = new Date(dateString)
-  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}`
+  return formatDateKST(dateString)
 }
 
 function MyOrdersContent() {

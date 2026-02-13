@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 3,
+            "activePatchIndex": 4,
             "patches": [
                 {
                     "date": 1770983887999,
@@ -20,6 +20,10 @@
                 {
                     "date": 1770984092329,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -33,10 +33,13 @@\n   const [orders, setOrders] = useState<StoredOrder[]>([])\n   const [mounted, setMounted] = useState(false)\n \n   useEffect(() => {\n-    setOrders(getMyOrders())\n-    setMounted(true)\n+    const id = requestAnimationFrame(() => {\n+      setOrders(getMyOrders())\n+      setMounted(true)\n+    })\n+    return () => cancelAnimationFrame(id)\n   }, [])\n \n   function handleBack() {\n     if (returnTo) {\n"
+                },
+                {
+                    "date": 1770984515427,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,7 +1,7 @@\n 'use client'\n \n-import { useState, useEffect } from 'react'\n+import { Suspense, useState, useEffect } from 'react'\n import Link from 'next/link'\n import { useRouter, useSearchParams } from 'next/navigation'\n import { ArrowLeft, Package } from 'lucide-react'\n import { formatKoreanWon } from '@/lib/utils'\n@@ -25,12 +25,12 @@\n   const d = new Date(dateString)\n   return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}`\n }\n \n-export default function MyOrdersPage() {\n+function MyOrdersContent() {\n   const router = useRouter()\n   const searchParams = useSearchParams()\n-  const returnTo = searchParams.get('returnTo') // 주문 완료에서 왔을 때 상점 slug\n+  const returnTo = searchParams.get('returnTo')\n   const [orders, setOrders] = useState<StoredOrder[]>([])\n   const [mounted, setMounted] = useState(false)\n \n   useEffect(() => {\n@@ -117,4 +117,28 @@\n       </main>\n     </div>\n   )\n }\n+\n+function MyOrdersFallback() {\n+  return (\n+    <div className=\"min-h-dvh bg-stone-50\">\n+      <header className=\"sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-stone-200 bg-white/80 backdrop-blur-lg px-4\">\n+        <div className=\"h-9 w-9 min-h-[44px] min-w-[44px]\" />\n+        <h1 className=\"text-lg font-bold text-stone-900\">내 주문 내역</h1>\n+      </header>\n+      <main className=\"mx-auto max-w-md px-4 py-6\">\n+        <div className=\"rounded-2xl border border-stone-200 bg-white py-12 text-center\">\n+          <p className=\"text-sm text-stone-400\">불러오는 중...</p>\n+        </div>\n+      </main>\n+    </div>\n+  )\n+}\n+\n+export default function MyOrdersPage() {\n+  return (\n+    <Suspense fallback={<MyOrdersFallback />}>\n+      <MyOrdersContent />\n+    </Suspense>\n+  )\n+}\n"
                 }
             ],
             "date": 1770983887999,

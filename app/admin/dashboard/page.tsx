@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { CalendarCheck, Clock, User } from 'lucide-react'
+import { getTodayKST, getKSTDayStartUTC, getKSTDayEndExclusiveUTC } from '@/lib/datetime-kst'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -13,17 +14,16 @@ export default async function DashboardPage() {
     .eq('owner_id', user!.id)
     .single()
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
+  const todayKST = getTodayKST()
+  const todayStart = getKSTDayStartUTC(todayKST)
+  const todayEnd = getKSTDayEndExclusiveUTC(todayKST)
 
   const { count: todayCount } = await supabase
     .from('reservations')
     .select('*', { count: 'exact', head: true })
     .eq('shop_id', shop!.id)
-    .gte('created_at', today.toISOString())
-    .lt('created_at', tomorrow.toISOString())
+    .gte('created_at', todayStart)
+    .lt('created_at', todayEnd)
 
   const { data: recentReservations } = await supabase
     .from('reservations')
@@ -96,6 +96,7 @@ export default async function DashboardPage() {
                     <div className="flex items-center gap-1.5 text-xs text-stone-400">
                       <Clock className="h-3 w-3" />
                       {new Date(reservation.created_at).toLocaleDateString('ko-KR', {
+                        timeZone: 'Asia/Seoul',
                         month: 'short',
                         day: 'numeric',
                         hour: '2-digit',

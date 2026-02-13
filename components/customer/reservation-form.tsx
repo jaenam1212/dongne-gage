@@ -11,6 +11,8 @@ import { Loader2, CheckCircle2, Copy } from 'lucide-react'
 import { formatKoreanWon } from '@/lib/utils'
 import toast, { Toaster } from 'react-hot-toast'
 import { saveOrderToMyOrders } from '@/lib/my-orders-storage'
+import { getTodayKST } from '@/lib/datetime-kst'
+import { DatePicker } from '@/components/ui/date-picker'
 
 interface Product {
   id: string
@@ -331,12 +333,12 @@ export function ReservationForm({
             <Label htmlFor="pickup_date" className="text-stone-700">
               픽업 희망일
             </Label>
-            <Input
-              id="pickup_date"
+            <DatePicker
               name="pickup_date"
-              type="date"
-              min={new Date().toISOString().split('T')[0]}
-              className="border-stone-200 bg-stone-50 focus-visible:ring-stone-400 h-11"
+              min={getTodayKST()}
+              placeholder="날짜 선택"
+              className="w-full"
+              inputClassName="h-11"
             />
           </div>
 

@@ -8,7 +8,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { ImagePlus, Loader2, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import toast, { Toaster } from 'react-hot-toast'
-import { formatKoreanWon } from '@/lib/utils'
+import { formatKoreanWon, MAX_PRODUCT_PRICE } from '@/lib/utils'
+import { toKSTDateOnly, toKSTTimeOnly, getTodayKST } from '@/lib/datetime-kst'
+import { DatePicker } from '@/components/ui/date-picker'
+import { TimePickerField } from '@/components/ui/time-picker'
 
 interface Product {
   id: string
@@ -50,7 +53,13 @@ export function ProductForm({ product, action, submitLabel }: ProductFormProps) 
   function handlePriceChange(e: React.ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value.replace(/[^0-9]/g, '')
     if (raw) {
-      setPriceDisplay(formatKoreanWon(parseInt(raw)))
+      const num = parseInt(raw, 10)
+      if (num > MAX_PRODUCT_PRICE) {
+        toast.error('상품 금액은 1,000만원을 초과할 수 없습니다')
+        setPriceDisplay(formatKoreanWon(MAX_PRODUCT_PRICE))
+        return
+      }
+      setPriceDisplay(formatKoreanWon(num))
     } else {
       setPriceDisplay('')
     }
@@ -60,18 +69,31 @@ export function ProductForm({ product, action, submitLabel }: ProductFormProps) 
     return priceDisplay.replace(/[^0-9]/g, '')
   }
 
-  function formatDeadlineForInput(deadline: string | null): string {
-    if (!deadline) return ''
-    const d = new Date(deadline)
-    const pad = (n: number) => n.toString().padStart(2, '0')
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  function getPriceNumber(): number {
+    return parseInt(getPriceRawValue(), 10) || 0
   }
 
   async function handleSubmit(formData: FormData) {
     setLoading(true)
     setError(null)
 
+    const priceNum = getPriceNumber()
+    if (priceNum > MAX_PRODUCT_PRICE) {
+      setError('상품 금액은 1,000만원을 초과할 수 없습니다')
+      toast.error('상품 금액은 1,000만원을 초과할 수 없습니다')
+      setLoading(false)
+      return
+    }
     formData.set('price', getPriceRawValue())
+
+    const deadlineDate = (formData.get('deadlineDate') as string)?.trim()
+    const deadlineTime = (formData.get('deadlineTime') as string)?.trim()
+    const deadlineValue = deadlineDate
+      ? deadlineTime
+        ? `${deadlineDate}T${deadlineTime}`
+        : `${deadlineDate}T23:59`
+      : ''
+    formData.set('deadline', deadlineValue)
 
     try {
       const result = await action(formData)
@@ -199,18 +221,32 @@ export function ProductForm({ product, action, submitLabel }: ProductFormProps) 
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="deadline" className="text-stone-700">
-                예약 마감일
-              </Label>
-              <Input
-                id="deadline"
-                name="deadline"
-                type="datetime-local"
-                defaultValue={formatDeadlineForInput(product?.deadline ?? null)}
-                className="border-stone-200 bg-stone-50 focus-visible:ring-stone-400"
-              />
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="deadlineDate" className="text-stone-700">
+                  예약 마감 날짜
+                </Label>
+                <DatePicker
+                  name="deadlineDate"
+                  defaultValue={toKSTDateOnly(product?.deadline ?? null)}
+                  min={getTodayKST()}
+                  placeholder="날짜 선택"
+                  inputClassName="h-10"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="deadlineTime" className="text-stone-700">
+                  마감 시간 <span className="text-stone-400 font-normal">(선택)</span>
+                </Label>
+                <TimePickerField
+                  name="deadlineTime"
+                  defaultValue={toKSTTimeOnly(product?.deadline ?? null)}
+                  placeholder="시간 선택 (선택)"
+                  inputClassName="h-10"
+                />
+              </div>
             </div>
+            <p className="text-xs text-stone-400">시간을 비우면 해당일 23:59 마감입니다.</p>
 
             <div className="space-y-2">
               <Label className="text-stone-700">상품 이미지</Label>

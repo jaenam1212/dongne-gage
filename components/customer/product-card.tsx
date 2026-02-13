@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Clock, Package, ShoppingBag } from 'lucide-react'
 import { formatKoreanWon } from '@/lib/utils'
+import { formatDateTimeKST } from '@/lib/datetime-kst'
 
 interface Product {
   id: string
@@ -34,12 +35,7 @@ function getRemainingText(product: Product): string {
 }
 
 function formatDeadline(deadline: string): string {
-  const d = new Date(deadline)
-  const month = d.getMonth() + 1
-  const day = d.getDate()
-  const hours = d.getHours().toString().padStart(2, '0')
-  const minutes = d.getMinutes().toString().padStart(2, '0')
-  return `${month}/${day} ${hours}:${minutes} 마감`
+  return `${formatDateTimeKST(deadline)} 마감`
 }
 
 export function ProductCard({
