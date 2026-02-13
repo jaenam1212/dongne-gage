@@ -35,6 +35,7 @@ export default async function EditProductPage({
         price: product.price,
         image_url: product.image_url,
         max_quantity: product.max_quantity,
+        max_quantity_per_customer: product.max_quantity_per_customer ?? undefined,
         reserved_count: product.reserved_count,
         deadline: product.deadline,
       }}

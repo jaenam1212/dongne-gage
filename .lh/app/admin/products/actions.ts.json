@@ -3,11 +3,15 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 1,
             "patches": [
                 {
                     "date": 1770978593395,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1770982677447,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -51,19 +51,23 @@\n     image_url = publicUrl\n   }\n \n   const maxQuantityRaw = formData.get('maxQuantity') as string\n+  const maxPerCustomerRaw = formData.get('maxQuantityPerCustomer') as string\n   const deadlineRaw = formData.get('deadline') as string\n   const maxQtyNum = maxQuantityRaw ? parseInt(maxQuantityRaw, 10) : NaN\n   const max_quantity = Number.isNaN(maxQtyNum) || maxQtyNum <= 0 ? null : maxQtyNum\n+  const perCustomerNum = maxPerCustomerRaw ? parseInt(maxPerCustomerRaw, 10) : NaN\n+  const max_quantity_per_customer = Number.isNaN(perCustomerNum) || perCustomerNum < 1 ? null : perCustomerNum\n \n   const { error } = await supabase.from('products').insert({\n     shop_id: shop.id,\n     title: title.trim(),\n     description: (formData.get('description') as string) || null,\n     price,\n     image_url,\n     max_quantity,\n+    max_quantity_per_customer,\n     deadline: deadlineRaw || null,\n     is_active: true,\n   })\n \n@@ -140,8 +144,11 @@\n \n     image_url = publicUrl\n   }\n \n+  const maxPerCustomerRaw = formData.get('maxQuantityPerCustomer') as string\n+  const perCustomerNum = maxPerCustomerRaw ? parseInt(maxPerCustomerRaw, 10) : NaN\n+  const max_quantity_per_customer = Number.isNaN(perCustomerNum) || perCustomerNum < 1 ? null : perCustomerNum\n   const deadlineRaw = formData.get('deadline') as string\n \n   const { error } = await supabase\n     .from('products')\n@@ -150,8 +157,9 @@\n       description: (formData.get('description') as string) || null,\n       price,\n       image_url,\n       max_quantity: newMaxQuantity,\n+      max_quantity_per_customer,\n       deadline: deadlineRaw || null,\n     })\n     .eq('id', productId)\n \n@@ -182,4 +190,30 @@\n \n   if (error) throw error\n   revalidatePath('/admin/products')\n }\n+\n+export async function deleteProducts(productIds: string[]) {\n+  if (!productIds.length) return { error: '삭제할 상품을 선택해주세요' }\n+\n+  const supabase = await createClient()\n+  const { data: { user } } = await supabase.auth.getUser()\n+  if (!user) throw new Error('인증이 필요합니다')\n+\n+  const { data: shop } = await supabase\n+    .from('shops')\n+    .select('id')\n+    .eq('owner_id', user.id)\n+    .single()\n+\n+  if (!shop) throw new Error('가게를 찾을 수 없습니다')\n+\n+  const { error } = await supabase\n+    .from('products')\n+    .delete()\n+    .eq('shop_id', shop.id)\n+    .in('id', productIds)\n+\n+  if (error) return { error: '삭제에 실패했습니다' }\n+  revalidatePath('/admin/products')\n+  return { success: true }\n+}\n"
                 }
             ],
             "date": 1770978593395,

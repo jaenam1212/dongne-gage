@@ -9,6 +9,7 @@ interface Product {
   price: number
   image_url: string | null
   max_quantity: number | null
+  max_quantity_per_customer?: number | null
   reserved_count: number
   deadline: string | null
   is_active: boolean
@@ -24,9 +25,10 @@ function isSoldOut(product: Product): boolean {
   return product.reserved_count >= product.max_quantity
 }
 
+/** 재고 문구. max_quantity만 사용 (1인당 제한과 혼동 금지) */
 function getRemainingText(product: Product): string {
-  if (product.max_quantity === null) return '무제한'
-  const remaining = product.max_quantity - product.reserved_count
+  if (product.max_quantity == null) return '무제한'
+  const remaining = Number(product.max_quantity) - Number(product.reserved_count ?? 0)
   if (remaining <= 0) return '매진'
   return `${remaining}개 남음`
 }
@@ -106,7 +108,7 @@ export function ProductCard({
             <p className="text-lg font-extrabold text-stone-900 tracking-tight">
               {formatKoreanWon(product.price)}
             </p>
-            <div className="mt-1 flex items-center gap-2 text-xs text-stone-400">
+            <div className="mt-1 flex flex-col gap-0.5 text-xs text-stone-400">
               <span
                 className={
                   soldOut
@@ -117,13 +119,13 @@ export function ProductCard({
                     : ''
                 }
               >
-                {getRemainingText(product)}
+                재고 {getRemainingText(product)}
               </span>
+              {product.max_quantity_per_customer != null && (
+                <span>1인당 최대 {product.max_quantity_per_customer}개</span>
+              )}
               {product.deadline && !expired && (
-                <>
-                  <span className="text-stone-300">·</span>
-                  <span>{formatDeadline(product.deadline)}</span>
-                </>
+                <span>{formatDeadline(product.deadline)}</span>
               )}
             </div>
           </div>

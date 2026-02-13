@@ -1,0 +1,18 @@
+{
+    "sourceFile": "supabase/migrations/20260213100000_max_quantity_per_customer.sql",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1770982677431,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1770982677431,
+            "name": "Commit-0",
+            "content": "-- 1인당 구매 수량 제한 (NULL = 제한 없음)\nALTER TABLE products\nADD COLUMN IF NOT EXISTS max_quantity_per_customer INTEGER;\n\nCOMMENT ON COLUMN products.max_quantity_per_customer IS '1인당 최대 구매 수량, NULL이면 제한 없음';\n\n-- create_reservation: 1인당 제한 검사 추가\nCREATE OR REPLACE FUNCTION create_reservation(\n  p_product_id UUID,\n  p_shop_id UUID,\n  p_customer_name TEXT,\n  p_customer_phone TEXT,\n  p_quantity INT,\n  p_pickup_date DATE,\n  p_memo TEXT,\n  p_privacy_agreed BOOLEAN\n)\nRETURNS reservations AS $$\nDECLARE\n  v_product products;\n  v_reservation reservations;\n  v_customer_total INT;\nBEGIN\n  SELECT * INTO v_product FROM products WHERE id = p_product_id FOR UPDATE;\n  \n  IF NOT FOUND THEN\n    RAISE EXCEPTION 'Product not found';\n  END IF;\n  \n  -- 전체 재고 제한\n  IF v_product.max_quantity IS NOT NULL THEN\n    IF (v_product.reserved_count + p_quantity) > v_product.max_quantity THEN\n      RAISE EXCEPTION 'Quantity not available. Remaining: %', (v_product.max_quantity - v_product.reserved_count);\n    END IF;\n  END IF;\n  \n  -- 1인당 구매 수량 제한 (같은 전화번호 기준)\n  IF v_product.max_quantity_per_customer IS NOT NULL THEN\n    SELECT COALESCE(SUM(quantity), 0) INTO v_customer_total\n    FROM reservations\n    WHERE product_id = p_product_id\n      AND customer_phone = p_customer_phone\n      AND status != 'cancelled';\n    \n    IF (v_customer_total + p_quantity) > v_product.max_quantity_per_customer THEN\n      RAISE EXCEPTION 'Per customer limit. Max % per person.', v_product.max_quantity_per_customer;\n    END IF;\n  END IF;\n  \n  INSERT INTO reservations (\n    product_id, shop_id, customer_name, customer_phone,\n    quantity, pickup_date, memo, privacy_agreed, status\n  ) VALUES (\n    p_product_id, p_shop_id, p_customer_name, p_customer_phone,\n    p_quantity, p_pickup_date, p_memo, p_privacy_agreed, 'pending'\n  ) RETURNING * INTO v_reservation;\n  \n  UPDATE products \n  SET reserved_count = reserved_count + p_quantity \n  WHERE id = p_product_id;\n  \n  RETURN v_reservation;\nEND;\n$$ LANGUAGE plpgsql;\n"
+        }
+    ]
+}

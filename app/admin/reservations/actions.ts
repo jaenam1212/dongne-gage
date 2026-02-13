@@ -89,3 +89,44 @@ export async function updateReservationStatus(
   revalidatePath('/admin/reservations')
   return { success: true }
 }
+
+export async function updateReservationsStatusBulk(
+  reservationIds: string[],
+  newStatus: 'confirmed' | 'cancelled' | 'completed'
+) {
+  if (reservationIds.length === 0) {
+    return { error: '선택된 예약이 없습니다' }
+  }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('인증이 필요합니다')
+
+  const { data: shop } = await supabase
+    .from('shops')
+    .select('id')
+    .eq('owner_id', user.id)
+    .single()
+
+  if (!shop) throw new Error('가게를 찾을 수 없습니다')
+
+  // 상태별 허용: 취소→완료만 막고, 완료→취소(환불 등)는 허용
+  const allowedCurrentStatuses: Record<string, ('pending' | 'confirmed' | 'cancelled' | 'completed')[]> = {
+    confirmed: ['pending'],
+    cancelled: ['pending', 'confirmed', 'completed'], // 완료→취소(환불) 허용
+    completed: ['confirmed'],
+  }
+  const allowed = allowedCurrentStatuses[newStatus]
+
+  const { error } = await supabase
+    .from('reservations')
+    .update({ status: newStatus })
+    .eq('shop_id', shop.id)
+    .in('id', reservationIds)
+    .in('status', allowed)
+
+  if (error) throw new Error('일괄 상태 변경에 실패했습니다')
+
+  revalidatePath('/admin/reservations')
+  return { success: true }
+}

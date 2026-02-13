@@ -3,7 +3,9 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { ProductCard } from '@/components/customer/product-card'
 import { PwaTutorialLink } from '@/components/customer/pwa-tutorial-link'
-import { Store, Phone } from 'lucide-react'
+import { PushSubscribeButton } from '@/components/customer/push-subscribe-button'
+import Link from 'next/link'
+import { Store, Phone, ShoppingBag } from 'lucide-react'
 
 interface Props {
   params: Promise<{ 'shop-slug': string }>
@@ -23,7 +25,7 @@ async function getShopWithProducts(slug: string) {
 
   const { data: products } = await supabase
     .from('products')
-    .select('id, title, description, price, image_url, max_quantity, reserved_count, deadline, is_active')
+    .select('id, title, description, price, image_url, max_quantity, max_quantity_per_customer, reserved_count, deadline, is_active')
     .eq('shop_id', shop.id)
     .eq('is_active', true)
     .order('created_at', { ascending: false })
@@ -95,6 +97,13 @@ export default async function ShopPage({ params }: Props) {
             </div>
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-2">
+            <Link
+              href="/my-orders"
+              className="inline-flex items-center gap-2 rounded-lg bg-stone-50 px-3 py-1.5 text-sm text-stone-600 hover:bg-stone-100 hover:text-stone-800 transition-colors"
+            >
+              <ShoppingBag className="h-3.5 w-3.5" />
+              내 주문 내역
+            </Link>
             {shop.phone && (
               <div className="inline-flex items-center gap-2 rounded-lg bg-stone-50 px-3 py-1.5 text-sm text-stone-600">
                 <Phone className="h-3.5 w-3.5" />
@@ -102,6 +111,7 @@ export default async function ShopPage({ params }: Props) {
               </div>
             )}
             <PwaTutorialLink shopSlug={slug} />
+            <PushSubscribeButton shopId={shop.id} shopSlug={slug} />
           </div>
         </div>
       </header>

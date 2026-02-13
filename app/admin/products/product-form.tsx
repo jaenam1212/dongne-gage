@@ -17,6 +17,7 @@ interface Product {
   price: number
   image_url: string | null
   max_quantity: number | null
+  max_quantity_per_customer?: number | null
   reserved_count: number
   deadline: string | null
 }
@@ -78,7 +79,11 @@ export function ProductForm({ product, action, submitLabel }: ProductFormProps) 
         setError(result.error)
         toast.error(result.error)
       }
-    } catch {
+    } catch (e: unknown) {
+      // redirect()가 던지는 예외는 그대로 전파 (성공 후 페이지 이동)
+      if (e && typeof e === 'object' && 'digest' in e && String((e as { digest?: string }).digest).startsWith('NEXT_REDIRECT')) {
+        throw e
+      }
       toast.error('처리 중 오류가 발생했습니다')
     } finally {
       setLoading(false)
@@ -175,6 +180,22 @@ export function ProductForm({ product, action, submitLabel }: ProductFormProps) 
                     현재 {product.reserved_count}건 예약됨 — 이 이하로 줄일 수 없습니다
                   </p>
                 )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="maxQuantityPerCustomer" className="text-stone-700">
+                  1인당 구매 수량
+                </Label>
+                <Input
+                  id="maxQuantityPerCustomer"
+                  name="maxQuantityPerCustomer"
+                  type="number"
+                  min={1}
+                  defaultValue={product?.max_quantity_per_customer ?? ''}
+                  placeholder="비워두면 제한 없음"
+                  className="border-stone-200 bg-stone-50 focus-visible:ring-stone-400"
+                />
+                <p className="text-xs text-stone-400">같은 전화번호로 예약 시 1인당 최대 수량</p>
               </div>
             </div>
 

@@ -52,9 +52,12 @@ export async function createProduct(formData: FormData) {
   }
 
   const maxQuantityRaw = formData.get('maxQuantity') as string
+  const maxPerCustomerRaw = formData.get('maxQuantityPerCustomer') as string
   const deadlineRaw = formData.get('deadline') as string
   const maxQtyNum = maxQuantityRaw ? parseInt(maxQuantityRaw, 10) : NaN
   const max_quantity = Number.isNaN(maxQtyNum) || maxQtyNum <= 0 ? null : maxQtyNum
+  const perCustomerNum = maxPerCustomerRaw ? parseInt(maxPerCustomerRaw, 10) : NaN
+  const max_quantity_per_customer = Number.isNaN(perCustomerNum) || perCustomerNum < 1 ? null : perCustomerNum
 
   const { error } = await supabase.from('products').insert({
     shop_id: shop.id,
@@ -63,6 +66,7 @@ export async function createProduct(formData: FormData) {
     price,
     image_url,
     max_quantity,
+    max_quantity_per_customer,
     deadline: deadlineRaw || null,
     is_active: true,
   })
@@ -141,6 +145,9 @@ export async function updateProduct(productId: string, formData: FormData) {
     image_url = publicUrl
   }
 
+  const maxPerCustomerRaw = formData.get('maxQuantityPerCustomer') as string
+  const perCustomerNum = maxPerCustomerRaw ? parseInt(maxPerCustomerRaw, 10) : NaN
+  const max_quantity_per_customer = Number.isNaN(perCustomerNum) || perCustomerNum < 1 ? null : perCustomerNum
   const deadlineRaw = formData.get('deadline') as string
 
   const { error } = await supabase
@@ -151,6 +158,7 @@ export async function updateProduct(productId: string, formData: FormData) {
       price,
       image_url,
       max_quantity: newMaxQuantity,
+      max_quantity_per_customer,
       deadline: deadlineRaw || null,
     })
     .eq('id', productId)
@@ -182,4 +190,30 @@ export async function toggleProductActive(productId: string, isActive: boolean) 
 
   if (error) throw error
   revalidatePath('/admin/products')
+}
+
+export async function deleteProducts(productIds: string[]) {
+  if (!productIds.length) return { error: '삭제할 상품을 선택해주세요' }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('인증이 필요합니다')
+
+  const { data: shop } = await supabase
+    .from('shops')
+    .select('id')
+    .eq('owner_id', user.id)
+    .single()
+
+  if (!shop) throw new Error('가게를 찾을 수 없습니다')
+
+  const { error } = await supabase
+    .from('products')
+    .delete()
+    .eq('shop_id', shop.id)
+    .in('id', productIds)
+
+  if (error) return { error: '삭제에 실패했습니다' }
+  revalidatePath('/admin/products')
+  return { success: true }
 }

@@ -3,11 +3,12 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { Plus, Pencil, Package, Clock } from 'lucide-react'
+import { Plus, Pencil, Package, Clock, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatKoreanWon } from '@/lib/utils'
-import { toggleProductActive } from './actions'
+import { toggleProductActive, deleteProducts } from './actions'
 import toast, { Toaster } from 'react-hot-toast'
+import { Checkbox } from '@/components/ui/checkbox'
 
 interface Product {
   id: string
@@ -16,6 +17,7 @@ interface Product {
   price: number
   image_url: string | null
   max_quantity: number | null
+  max_quantity_per_customer?: number | null
   reserved_count: number
   deadline: string | null
   is_active: boolean
@@ -52,6 +54,51 @@ export function ProductList({
   currentFilter: string
 }) {
   const router = useRouter()
+  const [isSelectionMode, setIsSelectionMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [deleting, setDeleting] = useState(false)
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === products.length) setSelectedIds(new Set())
+    else setSelectedIds(new Set(products.map((p) => p.id)))
+  }
+
+  async function handleDeleteSelected() {
+    if (selectedIds.size === 0) {
+      toast.error('삭제할 상품을 선택해주세요')
+      return
+    }
+    if (!confirm(`선택한 ${selectedIds.size}개 상품을 삭제할까요?`)) return
+    setDeleting(true)
+    try {
+      const result = await deleteProducts(Array.from(selectedIds))
+      if (result?.error) {
+        toast.error(result.error)
+      } else {
+        toast.success('삭제되었습니다')
+        exitSelectionMode()
+        router.refresh()
+      }
+    } catch {
+      toast.error('삭제에 실패했습니다')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  function exitSelectionMode() {
+    setIsSelectionMode(false)
+    setSelectedIds(new Set())
+  }
 
   return (
     <>
@@ -61,14 +108,55 @@ export function ProductList({
       />
 
       <div className="space-y-5">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-bold text-stone-900">상품 관리</h1>
-          <Button asChild className="h-9 bg-stone-900 text-white hover:bg-stone-800">
-            <Link href="/admin/products/new">
-              <Plus className="h-4 w-4 mr-1.5" />
-              새 상품 등록
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            {products.length > 0 && (
+              <>
+                {!isSelectionMode ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                    onClick={() => setIsSelectionMode(true)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1.5" />
+                    선택 삭제
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9"
+                      onClick={exitSelectionMode}
+                    >
+                      취소
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                      disabled={selectedIds.size === 0 || deleting}
+                      onClick={handleDeleteSelected}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1.5" />
+                      선택 삭제 {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
+                    </Button>
+                  </>
+                )}
+              </>
+            )}
+            <Button asChild className="h-9 bg-stone-900 text-white hover:bg-stone-800">
+              <Link href="/admin/products/new">
+                <Plus className="h-4 w-4 mr-1.5" />
+                새 상품 등록
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <div className="flex gap-2">
@@ -100,10 +188,25 @@ export function ProductList({
           </div>
         ) : (
           <div className="grid gap-3">
+            {isSelectionMode && products.length > 0 && (
+              <div className="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
+                <Checkbox
+                  id="select-all"
+                  checked={selectedIds.size === products.length}
+                  onCheckedChange={toggleSelectAll}
+                />
+                <label htmlFor="select-all" className="text-sm text-stone-600 cursor-pointer">
+                  전체 선택
+                </label>
+              </div>
+            )}
             {products.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
+                isSelectionMode={isSelectionMode}
+                selected={selectedIds.has(product.id)}
+                onSelectChange={() => toggleSelect(product.id)}
                 onToggle={async (isActive) => {
                   try {
                     await toggleProductActive(product.id, isActive)
@@ -124,9 +227,15 @@ export function ProductList({
 
 function ProductCard({
   product,
+  isSelectionMode,
+  selected,
+  onSelectChange,
   onToggle,
 }: {
   product: Product
+  isSelectionMode: boolean
+  selected: boolean
+  onSelectChange: () => void
   onToggle: (isActive: boolean) => void
 }) {
   const [toggling, setToggling] = useState(false)
@@ -143,6 +252,16 @@ function ProductCard({
       !product.is_active ? 'border-stone-200 opacity-60' : 'border-stone-200'
     }`}>
       <div className="flex gap-4">
+        {isSelectionMode && (
+          <div className="flex shrink-0 items-start pt-0.5">
+            <Checkbox
+              id={`select-${product.id}`}
+              checked={selected}
+              onCheckedChange={onSelectChange}
+              aria-label={`${product.title} 선택`}
+            />
+          </div>
+        )}
         <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-stone-100">
           {product.image_url ? (
             <img

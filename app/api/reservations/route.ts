@@ -105,6 +105,14 @@ export async function POST(request: NextRequest) {
   })
 
   if (error) {
+    if (error.message?.includes('Per customer limit') || error.message?.includes('per person')) {
+      const match = error.message.match(/Max (\d+)/i)
+      const max = match ? match[1] : ''
+      return NextResponse.json(
+        { error: max ? `1인당 최대 ${max}개까지 예약할 수 있습니다.` : '1인당 구매 수량 제한을 초과했습니다.' },
+        { status: 409 }
+      )
+    }
     if (error.message?.includes('수량') || error.message?.includes('quantity') || error.message?.includes('sold out')) {
       return NextResponse.json(
         { error: '재고가 부족합니다. 수량을 확인해주세요.' },

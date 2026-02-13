@@ -3,11 +3,15 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 1,
             "patches": [
                 {
                     "date": 1770978593407,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1770982677446,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -104,8 +104,16 @@\n     p_privacy_agreed: privacy_agreed,\n   })\n \n   if (error) {\n+    if (error.message?.includes('Per customer limit') || error.message?.includes('per person')) {\n+      const match = error.message.match(/Max (\\d+)/i)\n+      const max = match ? match[1] : ''\n+      return NextResponse.json(\n+        { error: max ? `1인당 최대 ${max}개까지 예약할 수 있습니다.` : '1인당 구매 수량 제한을 초과했습니다.' },\n+        { status: 409 }\n+      )\n+    }\n     if (error.message?.includes('수량') || error.message?.includes('quantity') || error.message?.includes('sold out')) {\n       return NextResponse.json(\n         { error: '재고가 부족합니다. 수량을 확인해주세요.' },\n         { status: 409 }\n"
                 }
             ],
             "date": 1770978593407,

@@ -24,7 +24,7 @@ async function getProductWithShop(slug: string, productId: string) {
 
   const { data: product } = await supabase
     .from('products')
-    .select('id, title, description, price, image_url, max_quantity, reserved_count, deadline, is_active')
+    .select('id, title, description, price, image_url, max_quantity, max_quantity_per_customer, reserved_count, deadline, is_active')
     .eq('id', productId)
     .eq('shop_id', shop.id)
     .eq('is_active', true)
@@ -134,7 +134,7 @@ export default async function ReservePage({ params }: Props) {
             </Link>
           </div>
         ) : (
-          <ReservationForm product={product} shopSlug={slug} />
+          <ReservationForm product={product} shopSlug={slug} shopName={shop.name} />
         )}
       </main>
     </div>

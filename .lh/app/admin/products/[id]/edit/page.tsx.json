@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/admin/products/[id]/edit/page.tsx",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1770982677430,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1770982677430,
+            "name": "Commit-0",
+            "content": "import { createClient } from '@/lib/supabase/server'\nimport { notFound } from 'next/navigation'\nimport { ProductForm } from '../../product-form'\nimport { updateProduct } from '../../actions'\n\nexport default async function EditProductPage({\n  params,\n}: {\n  params: Promise<{ id: string }>\n}) {\n  const { id } = await params\n  const supabase = await createClient()\n  const { data: { user } } = await supabase.auth.getUser()\n\n  if (!user) return notFound()\n\n  const { data: product } = await supabase\n    .from('products')\n    .select('*, shops!inner(owner_id)')\n    .eq('id', id)\n    .single()\n\n  if (!product || (product.shops as { owner_id: string }).owner_id !== user.id) {\n    return notFound()\n  }\n\n  const boundAction = updateProduct.bind(null, id)\n\n  return (\n    <ProductForm\n      product={{\n        id: product.id,\n        title: product.title,\n        description: product.description,\n        price: product.price,\n        image_url: product.image_url,\n        max_quantity: product.max_quantity,\n        max_quantity_per_customer: product.max_quantity_per_customer ?? undefined,\n        reserved_count: product.reserved_count,\n        deadline: product.deadline,\n      }}\n      action={boundAction}\n      submitLabel=\"저장\"\n    />\n  )\n}\n"
+        }
+    ]
+}

@@ -3,11 +3,23 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 3,
             "patches": [
                 {
                     "date": 1770981473376,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1770982396942,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -2,8 +2,9 @@\n import { notFound } from 'next/navigation'\n import { createClient } from '@/lib/supabase/server'\n import { ProductCard } from '@/components/customer/product-card'\n import { PwaTutorialLink } from '@/components/customer/pwa-tutorial-link'\n+import { PushSubscribeButton } from '@/components/customer/push-subscribe-button'\n import { Store, Phone } from 'lucide-react'\n \n interface Props {\n   params: Promise<{ 'shop-slug': string }>\n@@ -101,8 +102,9 @@\n                 {shop.phone}\n               </div>\n             )}\n             <PwaTutorialLink shopSlug={slug} />\n+            <PushSubscribeButton shopId={shop.id} shopSlug={slug} />\n           </div>\n         </div>\n       </header>\n \n"
+                },
+                {
+                    "date": 1770983023654,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -23,9 +23,9 @@\n   if (!shop) return null\n \n   const { data: products } = await supabase\n     .from('products')\n-    .select('id, title, description, price, image_url, max_quantity, reserved_count, deadline, is_active')\n+    .select('id, title, description, price, image_url, max_quantity, max_quantity_per_customer, reserved_count, deadline, is_active')\n     .eq('shop_id', shop.id)\n     .eq('is_active', true)\n     .order('created_at', { ascending: false })\n \n"
+                },
+                {
+                    "date": 1770983888160,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -3,9 +3,10 @@\n import { createClient } from '@/lib/supabase/server'\n import { ProductCard } from '@/components/customer/product-card'\n import { PwaTutorialLink } from '@/components/customer/pwa-tutorial-link'\n import { PushSubscribeButton } from '@/components/customer/push-subscribe-button'\n-import { Store, Phone } from 'lucide-react'\n+import Link from 'next/link'\n+import { Store, Phone, ShoppingBag } from 'lucide-react'\n \n interface Props {\n   params: Promise<{ 'shop-slug': string }>\n }\n@@ -95,8 +96,15 @@\n               )}\n             </div>\n           </div>\n           <div className=\"mt-4 flex flex-wrap items-center gap-2\">\n+            <Link\n+              href=\"/my-orders\"\n+              className=\"inline-flex items-center gap-2 rounded-lg bg-stone-50 px-3 py-1.5 text-sm text-stone-600 hover:bg-stone-100 hover:text-stone-800 transition-colors\"\n+            >\n+              <ShoppingBag className=\"h-3.5 w-3.5\" />\n+              내 주문 내역\n+            </Link>\n             {shop.phone && (\n               <div className=\"inline-flex items-center gap-2 rounded-lg bg-stone-50 px-3 py-1.5 text-sm text-stone-600\">\n                 <Phone className=\"h-3.5 w-3.5\" />\n                 {shop.phone}\n"
                 }
             ],
             "date": 1770981473376,

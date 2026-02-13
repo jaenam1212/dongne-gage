@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 2,
+            "activePatchIndex": 4,
             "patches": [
                 {
                     "date": 1770978593446,
@@ -16,6 +16,14 @@
                 {
                     "date": 1770978806739,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -110,15 +110,9 @@\n             {error}\n           </div>\n         )}\n \n-        <form\n-          action={handleSubmit}\n-          method=\"post\"\n-          encType=\"multipart/form-data\"\n-          className=\"space-y-5\"\n-          suppressHydrationWarning\n-        >\n+        <form action={handleSubmit} className=\"space-y-5\">\n           <div className=\"rounded-2xl border border-stone-200 bg-white p-5 shadow-sm space-y-5\">\n             <div className=\"space-y-2\">\n               <Label htmlFor=\"title\" className=\"text-stone-700\">\n                 상품명 <span className=\"text-red-500\">*</span>\n"
+                },
+                {
+                    "date": 1770982677453,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -16,8 +16,9 @@\n   description: string | null\n   price: number\n   image_url: string | null\n   max_quantity: number | null\n+  max_quantity_per_customer?: number | null\n   reserved_count: number\n   deadline: string | null\n }\n \n@@ -175,8 +176,24 @@\n                     현재 {product.reserved_count}건 예약됨 — 이 이하로 줄일 수 없습니다\n                   </p>\n                 )}\n               </div>\n+\n+              <div className=\"space-y-2\">\n+                <Label htmlFor=\"maxQuantityPerCustomer\" className=\"text-stone-700\">\n+                  1인당 구매 수량\n+                </Label>\n+                <Input\n+                  id=\"maxQuantityPerCustomer\"\n+                  name=\"maxQuantityPerCustomer\"\n+                  type=\"number\"\n+                  min={1}\n+                  defaultValue={product?.max_quantity_per_customer ?? ''}\n+                  placeholder=\"비워두면 제한 없음\"\n+                  className=\"border-stone-200 bg-stone-50 focus-visible:ring-stone-400\"\n+                />\n+                <p className=\"text-xs text-stone-400\">같은 전화번호로 예약 시 1인당 최대 수량</p>\n+              </div>\n             </div>\n \n             <div className=\"space-y-2\">\n               <Label htmlFor=\"deadline\" className=\"text-stone-700\">\n"
+                },
+                {
+                    "date": 1770982858903,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -78,9 +78,13 @@\n       if (result?.error) {\n         setError(result.error)\n         toast.error(result.error)\n       }\n-    } catch {\n+    } catch (e: unknown) {\n+      // redirect()가 던지는 예외는 그대로 전파 (성공 후 페이지 이동)\n+      if (e && typeof e === 'object' && 'digest' in e && String((e as { digest?: string }).digest).startsWith('NEXT_REDIRECT')) {\n+        throw e\n+      }\n       toast.error('처리 중 오류가 발생했습니다')\n     } finally {\n       setLoading(false)\n     }\n"
                 }
             ],
             "date": 1770978593446,

@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Loader2, CheckCircle2, Copy } from 'lucide-react'
 import { formatKoreanWon } from '@/lib/utils'
 import toast, { Toaster } from 'react-hot-toast'
+import { saveOrderToMyOrders } from '@/lib/my-orders-storage'
 
 interface Product {
   id: string
@@ -17,6 +18,7 @@ interface Product {
   price: number
   image_url: string | null
   max_quantity: number | null
+  max_quantity_per_customer?: number | null
   reserved_count: number
   deadline: string | null
 }
@@ -34,17 +36,20 @@ function normalizePhone(phone: string): string {
   return phone.replace(/-/g, '')
 }
 
+/** 재고 남은 수. max_quantity만 사용 (1인당 제한과 혼동 금지) */
 function getRemainingQuantity(product: Product): number | null {
-  if (product.max_quantity === null) return null
-  return product.max_quantity - product.reserved_count
+  if (product.max_quantity == null) return null
+  return Number(product.max_quantity) - Number(product.reserved_count ?? 0)
 }
 
 export function ReservationForm({
   product,
   shopSlug,
+  shopName,
 }: {
   product: Product
   shopSlug: string
+  shopName: string
 }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -54,7 +59,11 @@ export function ReservationForm({
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const remaining = getRemainingQuantity(product)
-  const maxQty = remaining !== null ? Math.min(remaining, 99) : 99
+  const perCustomer = product.max_quantity_per_customer ?? 99
+  const maxQty =
+    remaining !== null
+      ? Math.min(remaining, perCustomer, 99)
+      : Math.min(perCustomer, 99)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -73,7 +82,12 @@ export function ReservationForm({
     }
     if (quantity < 1) newErrors.quantity = '수량을 선택해주세요'
     if (remaining !== null && quantity > remaining) {
-      newErrors.quantity = `최대 ${remaining}개까지 예약할 수 있습니다`
+      newErrors.quantity = `재고 부족입니다. 최대 ${remaining}개까지 예약할 수 있습니다`
+    } else if (quantity > maxQty) {
+      newErrors.quantity =
+        product.max_quantity_per_customer != null
+          ? `1인당 최대 ${product.max_quantity_per_customer}개까지 예약할 수 있습니다`
+          : `최대 ${maxQty}개까지 예약할 수 있습니다`
     }
     if (!privacyAgreed) newErrors.privacy = '개인정보 동의가 필요합니다'
 
@@ -112,7 +126,26 @@ export function ReservationForm({
         return
       }
 
-      setResult(data.reservation)
+      const reservation = data.reservation as ReservationResult & { status?: string }
+      setResult(reservation)
+
+      try {
+        saveOrderToMyOrders({
+          id: reservation.id,
+          shop_slug: shopSlug,
+          shop_name: shopName,
+          product_title: product.title,
+          product_price: product.price,
+          quantity: reservation.quantity,
+          total_price: product.price * reservation.quantity,
+          pickup_date: reservation.pickup_date ?? null,
+          status: (reservation.status as 'pending' | 'confirmed' | 'cancelled' | 'completed') ?? 'pending',
+          customer_name: reservation.customer_name,
+          created_at: new Date().toISOString(),
+        })
+      } catch {
+        // localStorage 실패 시 무시
+      }
     } catch {
       toast.error('네트워크 오류가 발생했습니다')
     } finally {
@@ -186,12 +219,21 @@ export function ReservationForm({
           </div>
         </div>
 
-        <Button
-          onClick={() => router.push(`/${shopSlug}`)}
-          className="w-full h-12 bg-stone-900 text-white hover:bg-stone-800 rounded-xl text-base font-semibold"
-        >
-          가게로 돌아가기
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => router.push(`/my-orders?returnTo=${encodeURIComponent(shopSlug)}`)}
+            className="flex-1 h-12 rounded-xl text-base font-semibold border-stone-200"
+          >
+            내 주문 내역
+          </Button>
+          <Button
+            onClick={() => router.push(`/${shopSlug}`)}
+            className="flex-1 h-12 bg-stone-900 text-white hover:bg-stone-800 rounded-xl text-base font-semibold"
+          >
+            가게로 돌아가기
+          </Button>
+        </div>
       </div>
     )
   }
@@ -274,9 +316,12 @@ export function ReservationForm({
               className="border-stone-200 bg-stone-50 focus-visible:ring-stone-400 h-11"
               aria-invalid={!!errors.quantity}
             />
-            {remaining !== null && (
-              <p className="text-xs text-stone-400">{remaining}개 남음</p>
-            )}
+            <p className="text-xs text-stone-400">
+              {remaining !== null ? `재고 ${remaining}개 남음` : '재고 무제한'}
+              {product.max_quantity_per_customer != null && (
+                <span className="block mt-0.5">1인당 최대 {product.max_quantity_per_customer}개</span>
+              )}
+            </p>
             {errors.quantity && (
               <p className="text-xs text-red-500">{errors.quantity}</p>
             )}

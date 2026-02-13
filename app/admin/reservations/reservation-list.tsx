@@ -3,10 +3,11 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Calendar, Package } from 'lucide-react'
+import { Calendar, Package, FileDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { formatKoreanWon } from '@/lib/utils'
-import { updateReservationStatus } from './actions'
+import { updateReservationStatus, updateReservationsStatusBulk } from './actions'
 import toast, { Toaster } from 'react-hot-toast'
 
 interface Reservation {
@@ -52,6 +53,37 @@ const STATUS_LABELS = {
   completed: '완료',
 }
 
+function buildReservationsCsv(reservations: Reservation[]): string {
+  const BOM = '\uFEFF'
+  const headers = ['예약일시', '상품명', '예약자', '연락처', '수량', '단가', '금액', '픽업희망일', '메모', '상태']
+  const escape = (v: string | number | null | undefined): string => {
+    if (v == null) return ''
+    const s = String(v).replace(/"/g, '""')
+    return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s}"` : s
+  }
+  const rows = reservations.map((r) => {
+    const product = r.products as { title?: string; price?: number } | null
+    const title = product?.title ?? ''
+    const price = product?.price ?? 0
+    const amount = price * r.quantity
+    const dateStr = r.created_at ? formatDateTime(r.created_at) : ''
+    const pickupStr = r.pickup_date ? new Date(r.pickup_date).toLocaleDateString('ko-KR') : ''
+    return [
+      dateStr,
+      title,
+      r.customer_name,
+      r.customer_phone,
+      r.quantity,
+      price,
+      amount,
+      pickupStr,
+      r.memo ?? '',
+      STATUS_LABELS[r.status],
+    ].map((val) => escape(val)).join(',')
+  })
+  return BOM + [headers.join(','), ...rows].join('\n')
+}
+
 function formatDate(dateString: string): string {
   const d = new Date(dateString)
   return `${d.getMonth() + 1}/${d.getDate()}`
@@ -70,6 +102,69 @@ export function ReservationList({
   shopSlug: string
 }) {
   const router = useRouter()
+  const [isSelectionMode, setIsSelectionMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkUpdating, setBulkUpdating] = useState(false)
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === reservations.length) setSelectedIds(new Set())
+    else setSelectedIds(new Set(reservations.map((r) => r.id)))
+  }
+
+  function exitSelectionMode() {
+    setIsSelectionMode(false)
+    setSelectedIds(new Set())
+  }
+
+  function handleExcelDownload() {
+    if (reservations.length === 0) {
+      toast.error('다운로드할 예약이 없습니다')
+      return
+    }
+    const csv = buildReservationsCsv(reservations)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `예약목록_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success('엑셀 파일이 다운로드되었습니다')
+  }
+
+  async function handleBulkStatus(newStatus: 'confirmed' | 'cancelled' | 'completed') {
+    if (selectedIds.size === 0) {
+      toast.error('예약을 선택해주세요')
+      return
+    }
+    const action = newStatus === 'confirmed' ? '확인' : newStatus === 'cancelled' ? '취소' : '완료'
+    if (!confirm(`선택한 ${selectedIds.size}건 예약을 일괄 ${action} 처리할까요?`)) return
+    setBulkUpdating(true)
+    try {
+      const result = await updateReservationsStatusBulk(Array.from(selectedIds), newStatus)
+      if (result?.error) {
+        toast.error(result.error)
+      } else {
+        toast.success(`${selectedIds.size}건 ${action} 처리되었습니다`)
+        exitSelectionMode()
+        router.refresh()
+      }
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : '일괄 처리에 실패했습니다'
+      toast.error(message)
+    } finally {
+      setBulkUpdating(false)
+    }
+  }
 
   return (
     <>
@@ -79,7 +174,78 @@ export function ReservationList({
       />
 
       <div className="space-y-5">
-        <h1 className="text-xl font-bold text-stone-900">예약 관리</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-xl font-bold text-stone-900">예약 관리</h1>
+          {reservations.length > 0 && (
+            <>
+              {!isSelectionMode ? (
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    onClick={handleExcelDownload}
+                  >
+                    <FileDown className="h-4 w-4 mr-1.5" />
+                    엑셀 다운로드
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    onClick={() => setIsSelectionMode(true)}
+                  >
+                    일괄 처리
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    onClick={exitSelectionMode}
+                  >
+                    취소
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 border-green-200 text-green-700 hover:bg-green-50"
+                    disabled={selectedIds.size === 0 || bulkUpdating}
+                    onClick={() => handleBulkStatus('confirmed')}
+                  >
+                    일괄 확인 {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 border-red-200 text-red-700 hover:bg-red-50"
+                    disabled={selectedIds.size === 0 || bulkUpdating}
+                    onClick={() => handleBulkStatus('cancelled')}
+                  >
+                    일괄 취소 {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    disabled={selectedIds.size === 0 || bulkUpdating}
+                    onClick={() => handleBulkStatus('completed')}
+                  >
+                    일괄 완료 {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
 
         <div className="space-y-3">
           <div className="flex gap-2">
@@ -114,17 +280,33 @@ export function ReservationList({
           </div>
         ) : (
           <div className="grid gap-3">
+            {isSelectionMode && reservations.length > 0 && (
+              <div className="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
+                <Checkbox
+                  id="select-all-reservations"
+                  checked={selectedIds.size === reservations.length}
+                  onCheckedChange={toggleSelectAll}
+                />
+                <label htmlFor="select-all-reservations" className="text-sm text-stone-600 cursor-pointer">
+                  전체 선택
+                </label>
+              </div>
+            )}
             {reservations.map((reservation) => (
               <ReservationCard
                 key={reservation.id}
                 reservation={reservation}
+                isSelectionMode={isSelectionMode}
+                selected={selectedIds.has(reservation.id)}
+                onSelectChange={() => toggleSelect(reservation.id)}
                 onStatusChange={async (newStatus) => {
                   try {
                     await updateReservationStatus(reservation.id, newStatus)
                     toast.success('예약 상태가 변경되었습니다')
                     router.refresh()
-                  } catch (error: any) {
-                    toast.error(error.message || '상태 변경에 실패했습니다')
+                  } catch (error: unknown) {
+                    const message = error instanceof Error ? error.message : '상태 변경에 실패했습니다'
+                    toast.error(message)
                   }
                 }}
               />
@@ -138,9 +320,15 @@ export function ReservationList({
 
 function ReservationCard({
   reservation,
+  isSelectionMode,
+  selected,
+  onSelectChange,
   onStatusChange,
 }: {
   reservation: Reservation
+  isSelectionMode: boolean
+  selected: boolean
+  onSelectChange: () => void
   onStatusChange: (newStatus: 'confirmed' | 'cancelled' | 'completed') => void
 }) {
   const [updating, setUpdating] = useState(false)
@@ -154,6 +342,16 @@ function ReservationCard({
   return (
     <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
       <div className="flex gap-4">
+        {isSelectionMode && (
+          <div className="flex shrink-0 items-start pt-0.5">
+            <Checkbox
+              id={`select-${reservation.id}`}
+              checked={selected}
+              onCheckedChange={onSelectChange}
+              aria-label={`${reservation.products.title} 예약 선택`}
+            />
+          </div>
+        )}
         <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-stone-100">
           {reservation.products.image_url ? (
             <img

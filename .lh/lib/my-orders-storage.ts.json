@@ -1,0 +1,18 @@
+{
+    "sourceFile": "lib/my-orders-storage.ts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1770983888156,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1770983888156,
+            "name": "Commit-0",
+            "content": "/** 로그인 전 로컬스토리지 기반 주문 내역 (내 주문 내역) */\n\nexport const MY_ORDERS_STORAGE_KEY = 'dongnegage-my-orders'\n\nexport interface StoredOrder {\n  id: string\n  shop_slug: string\n  shop_name: string\n  product_title: string\n  product_price: number\n  quantity: number\n  total_price: number\n  pickup_date: string | null\n  status: 'pending' | 'confirmed' | 'cancelled' | 'completed'\n  customer_name: string\n  created_at: string\n}\n\nexport function getMyOrders(): StoredOrder[] {\n  if (typeof window === 'undefined') return []\n  try {\n    const raw = window.localStorage.getItem(MY_ORDERS_STORAGE_KEY)\n    if (!raw) return []\n    const parsed = JSON.parse(raw) as unknown\n    return Array.isArray(parsed) ? parsed : []\n  } catch {\n    return []\n  }\n}\n\nexport function saveOrderToMyOrders(order: StoredOrder): void {\n  const list = getMyOrders()\n  if (list.some((o) => o.id === order.id)) return\n  const next = [order, ...list]\n  try {\n    window.localStorage.setItem(MY_ORDERS_STORAGE_KEY, JSON.stringify(next))\n  } catch {\n    // quota or private mode\n  }\n}\n\nexport function updateOrderStatusInMyOrders(\n  orderId: string,\n  status: StoredOrder['status']\n): void {\n  const list = getMyOrders()\n  const idx = list.findIndex((o) => o.id === orderId)\n  if (idx === -1) return\n  const next = [...list]\n  next[idx] = { ...next[idx], status }\n  try {\n    window.localStorage.setItem(MY_ORDERS_STORAGE_KEY, JSON.stringify(next))\n  } catch {}\n}\n"
+        }
+    ]
+}
