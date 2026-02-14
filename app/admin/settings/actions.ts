@@ -91,7 +91,6 @@ export async function updateShop(formData: FormData): Promise<UpdateShopResult> 
       phone: normalizeOptionalString(formData.get('phone')),
       address: normalizeOptionalString(formData.get('address')),
       logo_url,
-      kakao_channel_url: normalizeOptionalString(formData.get('kakao_channel_url')),
     })
     .eq('id', shop.id)
 

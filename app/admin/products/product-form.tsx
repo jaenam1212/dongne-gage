@@ -28,6 +28,7 @@ interface Product {
   inventory_link_enabled?: boolean
   inventory_item_id?: string | null
   inventory_consume_per_sale?: number | null
+  image_urls?: string[]
 }
 
 interface InventoryOption {
@@ -47,21 +48,47 @@ interface ProductFormProps {
 
 export function ProductForm({ product, inventoryOptions, action, submitLabel }: ProductFormProps) {
   const [loading, setLoading] = useState(false)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(product?.image_url ?? null)
+  const [previewUrls, setPreviewUrls] = useState<string[]>(
+    product?.image_urls && product.image_urls.length > 0
+      ? product.image_urls
+      : product?.image_url
+      ? [product.image_url]
+      : []
+  )
   const [priceDisplay, setPriceDisplay] = useState(product?.price ? formatKoreanWon(product.price) : '')
   const [error, setError] = useState<string | null>(null)
   const [inventoryLinkEnabled, setInventoryLinkEnabled] = useState(!!product?.inventory_link_enabled)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
+    const files = Array.from(e.target.files ?? [])
+    if (files.length > 0) {
+      const invalidFile = files.find((file) => file.size > 5 * 1024 * 1024)
+      if (invalidFile) {
         toast.error('이미지는 5MB 이하만 가능합니다')
         e.target.value = ''
         return
       }
-      setPreviewUrl(URL.createObjectURL(file))
+
+      setSelectedFiles((prev) => {
+        const merged = [...prev]
+        for (const file of files) {
+          const exists = merged.some(
+            (f) =>
+              f.name === file.name &&
+              f.size === file.size &&
+              f.lastModified === file.lastModified
+          )
+          if (!exists) {
+            merged.push(file)
+          }
+        }
+        return merged
+      })
+      const next = files.map((file) => URL.createObjectURL(file))
+      setPreviewUrls((prev) => [...prev, ...next])
+      e.target.value = ''
     }
   }
 
@@ -109,6 +136,10 @@ export function ProductForm({ product, inventoryOptions, action, submitLabel }: 
         : `${deadlineDate}T23:59`
       : ''
     formData.set('deadline', deadlineValue)
+    formData.delete('images')
+    for (const file of selectedFiles) {
+      formData.append('images', file)
+    }
 
     try {
       const result = await action(formData)
@@ -339,29 +370,41 @@ export function ProductForm({ product, inventoryOptions, action, submitLabel }: 
                   onClick={() => fileInputRef.current?.click()}
                   className="flex h-24 w-24 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-stone-200 bg-stone-50 hover:border-stone-300 hover:bg-stone-100 transition-colors overflow-hidden"
                 >
-                  {previewUrl ? (
-                    <Image
-                      src={previewUrl}
-                      alt="상품 이미지 미리보기"
-                      width={96}
-                      height={96}
-                      unoptimized
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
+                  {previewUrls.length === 0 ? (
                     <ImagePlus className="h-6 w-6 text-stone-400" />
+                  ) : (
+                    <span className="text-xs font-semibold text-stone-600">
+                      +{previewUrls.length}
+                    </span>
                   )}
                 </button>
                 <div className="text-xs text-stone-400">
-                  <p>클릭하여 이미지를 업로드하세요</p>
-                  <p>JPG, PNG (최대 5MB)</p>
+                  <p>클릭하여 이미지를 업로드하세요 (여러 장 가능)</p>
+                  <p>JPG, PNG, WEBP (각 최대 5MB)</p>
                 </div>
               </div>
+              {previewUrls.length > 0 && (
+                <div className="grid grid-cols-4 gap-2">
+                  {previewUrls.slice(0, 8).map((url, idx) => (
+                    <div key={`${url}-${idx}`} className="relative aspect-square overflow-hidden rounded-lg bg-stone-100">
+                      <Image
+                        src={url}
+                        alt={`상품 이미지 ${idx + 1}`}
+                        fill
+                        unoptimized={url.startsWith('blob:')}
+                        sizes="96px"
+                        className="object-cover"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
               <input
                 ref={fileInputRef}
                 type="file"
-                name="image"
+                name="images"
                 accept="image/*"
+                multiple
                 onChange={handleFileChange}
                 className="hidden"
               />

@@ -47,10 +47,12 @@ function getRemainingQuantity(product: Product): number | null {
 
 export function ReservationForm({
   product,
+  productImages,
   shopSlug,
   shopName,
 }: {
   product: Product
+  productImages: string[]
   shopSlug: string
   shopName: string
 }) {
@@ -60,6 +62,14 @@ export function ReservationForm({
   const [showPrivacy, setShowPrivacy] = useState(false)
   const [result, setResult] = useState<ReservationResult | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
+
+  const images =
+    productImages.length > 0
+      ? productImages
+      : product.image_url
+      ? [product.image_url]
+      : []
 
   const remaining = getRemainingQuantity(product)
   const perCustomer = product.max_quantity_per_customer ?? 99
@@ -246,6 +256,50 @@ export function ReservationForm({
       <Toaster position="top-center" toastOptions={{ className: 'text-sm font-medium', duration: 3000 }} />
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        {images.length > 0 && (
+          <div className="rounded-2xl border border-stone-200 bg-white p-3 shadow-sm">
+            <div
+              className="flex snap-x snap-mandatory overflow-x-auto rounded-xl bg-stone-100"
+              onScroll={(e) => {
+                const el = e.currentTarget
+                const width = el.clientWidth || 1
+                const index = Math.round(el.scrollLeft / width)
+                if (index !== currentImageIndex) {
+                  setCurrentImageIndex(Math.max(0, Math.min(images.length - 1, index)))
+                }
+              }}
+            >
+              {images.map((url, idx) => (
+                <div
+                  key={`${url}-${idx}`}
+                  className="relative h-56 w-full shrink-0 snap-center"
+                >
+                  <Image
+                    src={url}
+                    alt={`${product.title} 이미지 ${idx + 1}`}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 448px"
+                    className="object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+
+            {images.length > 1 && (
+              <div className="mt-2 flex items-center justify-center gap-1.5">
+                {images.map((_, idx) => (
+                  <span
+                    key={idx}
+                    className={`h-1.5 rounded-full transition-all ${
+                      idx === currentImageIndex ? 'w-4 bg-stone-700' : 'w-1.5 bg-stone-300'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-4">
             <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-stone-100">

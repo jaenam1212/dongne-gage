@@ -39,6 +39,20 @@ export default async function EditProductPage({
     .limit(1)
 
   const activeLink = activeLinks?.[0]
+  const { data: productImages } = await supabase
+    .from('product_images')
+    .select('image_url, sort_order')
+    .eq('product_id', product.id)
+    .order('sort_order', { ascending: true })
+
+  const mergedImageUrls = (() => {
+    const list = (productImages ?? []).map((img) => img.image_url)
+    if (product.image_url && !list.includes(product.image_url)) {
+      list.unshift(product.image_url)
+    }
+    return list
+  })()
+
   const boundAction = updateProduct.bind(null, id)
 
   return (
@@ -56,6 +70,7 @@ export default async function EditProductPage({
         inventory_link_enabled: !!activeLink,
         inventory_item_id: activeLink?.inventory_item_id ?? null,
         inventory_consume_per_sale: activeLink?.consume_per_sale ?? 1,
+        image_urls: mergedImageUrls,
       }}
       inventoryOptions={inventoryItems ?? []}
       action={boundAction}

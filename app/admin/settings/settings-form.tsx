@@ -165,18 +165,6 @@ export function SettingsForm({ shop }: { shop: Shop | null }) {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="kakao_channel_url" className="text-stone-700">
-              카카오 채널 URL
-            </Label>
-            <Input
-              id="kakao_channel_url"
-              name="kakao_channel_url"
-              defaultValue={shop?.kakao_channel_url ?? ''}
-              placeholder="https://pf.kakao.com/..."
-              className="border-stone-200 bg-stone-50 focus-visible:ring-stone-400"
-            />
-          </div>
         </div>
 
         <Button

@@ -6,6 +6,71 @@ import { createClient } from '@/lib/supabase/server'
 import { sendPushToShop } from '@/lib/push'
 import { fromKSTToISOUTC } from '@/lib/datetime-kst'
 
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024
+
+function getImageFilesFromForm(formData: FormData): File[] {
+  const files = formData
+    .getAll('images')
+    .filter((f): f is File => f instanceof File && f.size > 0)
+  if (files.length > 0) return files
+
+  const fallback = formData.get('image')
+  if (fallback instanceof File && fallback.size > 0) return [fallback]
+  return []
+}
+
+async function uploadProductImages(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  shopId: string,
+  productId: string,
+  files: File[],
+  startOrder: number
+): Promise<{ urls: string[]; error?: string }> {
+  const urls: string[] = []
+  const rows: { product_id: string; shop_id: string; image_url: string; sort_order: number }[] = []
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]
+    if (file.size > MAX_IMAGE_SIZE) {
+      return { urls: [], error: '이미지는 5MB 이하만 업로드할 수 있습니다' }
+    }
+    if (!file.type.startsWith('image/')) {
+      return { urls: [], error: '이미지 파일만 업로드할 수 있습니다' }
+    }
+
+    const ext = file.name.split('.').pop()?.trim() || 'png'
+    const fileName = `${shopId}-${productId}-${Date.now()}-${i}.${ext}`
+    const { error: uploadError } = await supabase.storage
+      .from('product-images')
+      .upload(fileName, file)
+
+    if (uploadError) {
+      return { urls: [], error: `이미지 업로드에 실패했습니다: ${uploadError.message}` }
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from('product-images').getPublicUrl(fileName)
+
+    urls.push(publicUrl)
+    rows.push({
+      product_id: productId,
+      shop_id: shopId,
+      image_url: publicUrl,
+      sort_order: startOrder + i,
+    })
+  }
+
+  if (rows.length > 0) {
+    const { error: insertError } = await supabase.from('product_images').insert(rows)
+    if (insertError) {
+      return { urls: [], error: '이미지 메타데이터 저장에 실패했습니다' }
+    }
+  }
+
+  return { urls }
+}
+
 async function resolveInventoryLinkInput(
   supabase: Awaited<ReturnType<typeof createClient>>,
   shopId: string,
@@ -93,28 +158,8 @@ export async function createProduct(formData: FormData) {
     return { error: '상품 금액은 1,000만원을 초과할 수 없습니다' }
   }
 
+  const imageFiles = getImageFilesFromForm(formData)
   let image_url: string | null = null
-  const imageFile = formData.get('image') as File | null
-  if (imageFile && imageFile.size > 0) {
-    if (imageFile.size > 5 * 1024 * 1024) {
-      return { error: '이미지는 5MB 이하만 가능합니다' }
-    }
-    const fileExt = imageFile.name.split('.').pop()
-    const fileName = `${shop.id}-${Date.now()}.${fileExt}`
-    const { error: uploadError } = await supabase.storage
-      .from('product-images')
-      .upload(fileName, imageFile)
-
-    if (uploadError) {
-      return { error: `이미지 업로드에 실패했습니다: ${uploadError.message}` }
-    }
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('product-images')
-      .getPublicUrl(fileName)
-
-    image_url = publicUrl
-  }
 
   const maxQuantityRaw = formData.get('maxQuantity') as string
   const maxPerCustomerRaw = formData.get('maxQuantityPerCustomer') as string
@@ -137,7 +182,7 @@ export async function createProduct(formData: FormData) {
       title: title.trim(),
       description: (formData.get('description') as string) || null,
       price,
-      image_url,
+      image_url: null,
       max_quantity,
       max_quantity_per_customer,
       deadline,
@@ -147,6 +192,26 @@ export async function createProduct(formData: FormData) {
     .single()
 
   if (error || !insertedProduct) return { error: '상품 등록에 실패했습니다' }
+
+  if (imageFiles.length > 0) {
+    const uploadResult = await uploadProductImages(
+      supabase,
+      shop.id,
+      insertedProduct.id,
+      imageFiles,
+      0
+    )
+
+    if (uploadResult.error) {
+      await supabase.from('products').delete().eq('id', insertedProduct.id).eq('shop_id', shop.id)
+      return { error: uploadResult.error }
+    }
+
+    image_url = uploadResult.urls[0] ?? null
+    if (image_url) {
+      await supabase.from('products').update({ image_url }).eq('id', insertedProduct.id)
+    }
+  }
 
   if (inventoryLinkInput.enabled && inventoryLinkInput.inventoryItemId) {
     const { error: linkError } = await supabase
@@ -219,27 +284,30 @@ export async function updateProduct(productId: string, formData: FormData) {
     }
   }
 
+  const imageFiles = getImageFilesFromForm(formData)
   let image_url = product.image_url
-  const imageFile = formData.get('image') as File | null
-  if (imageFile && imageFile.size > 0) {
-    if (imageFile.size > 5 * 1024 * 1024) {
-      return { error: '이미지는 5MB 이하만 가능합니다' }
+
+  const { data: existingImages } = await supabase
+    .from('product_images')
+    .select('id, image_url')
+    .eq('product_id', productId)
+    .order('sort_order', { ascending: true })
+
+  const existingCount = existingImages?.length ?? 0
+  if (imageFiles.length > 0) {
+    const uploadResult = await uploadProductImages(
+      supabase,
+      product.shop_id,
+      productId,
+      imageFiles,
+      existingCount
+    )
+    if (uploadResult.error) {
+      return { error: uploadResult.error }
     }
-    const fileExt = imageFile.name.split('.').pop()
-    const fileName = `${product.shop_id}-${Date.now()}.${fileExt}`
-    const { error: uploadError } = await supabase.storage
-      .from('product-images')
-      .upload(fileName, imageFile)
-
-    if (uploadError) {
-      return { error: `이미지 업로드에 실패했습니다: ${uploadError.message}` }
+    if (!image_url) {
+      image_url = uploadResult.urls[0] ?? null
     }
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('product-images')
-      .getPublicUrl(fileName)
-
-    image_url = publicUrl
   }
 
   const maxPerCustomerRaw = formData.get('maxQuantityPerCustomer') as string

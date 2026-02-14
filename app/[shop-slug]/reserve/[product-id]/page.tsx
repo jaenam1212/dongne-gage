@@ -32,9 +32,20 @@ async function getProductWithShop(slug: string, productId: string) {
 
   if (!product) return null
 
+  const { data: productImages } = await supabase
+    .from('product_images')
+    .select('image_url, sort_order')
+    .eq('product_id', product.id)
+    .order('sort_order', { ascending: true })
+
   const { data: reservedQuantity } = await supabase.rpc('get_product_reserved_quantity', {
     p_product_id: product.id,
   })
+
+  const imageUrls = (productImages ?? []).map((img) => img.image_url)
+  if (product.image_url && !imageUrls.includes(product.image_url)) {
+    imageUrls.unshift(product.image_url)
+  }
 
   return {
     shop,
@@ -42,6 +53,7 @@ async function getProductWithShop(slug: string, productId: string) {
       ...product,
       reserved_count:
         typeof reservedQuantity === 'number' ? reservedQuantity : product.reserved_count,
+      image_urls: imageUrls,
     },
   }
 }
@@ -145,7 +157,12 @@ export default async function ReservePage({ params }: Props) {
             </Link>
           </div>
         ) : (
-          <ReservationForm product={product} shopSlug={slug} shopName={shop.name} />
+          <ReservationForm
+            product={product}
+            productImages={product.image_urls ?? []}
+            shopSlug={slug}
+            shopName={shop.name}
+          />
         )}
       </main>
     </div>
