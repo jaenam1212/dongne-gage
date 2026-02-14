@@ -37,11 +37,14 @@ export function SettingsForm({ shop }: { shop: Shop | null }) {
     setLoading(true)
     try {
       const result = await updateShop(formData)
-      if (result.success) {
+      if (result?.error) {
+        toast.error(result.error)
+      } else if (result?.success) {
         toast.success('가게 정보가 저장되었습니다')
       }
-    } catch {
-      toast.error('저장에 실패했습니다. 다시 시도해주세요.')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '저장에 실패했습니다. 다시 시도해주세요.'
+      toast.error(message)
     } finally {
       setLoading(false)
     }

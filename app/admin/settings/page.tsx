@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import { SettingsForm } from './settings-form'
 
 export default async function SettingsPage() {
@@ -7,10 +8,14 @@ export default async function SettingsPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
+  if (!user) {
+    redirect('/admin/login')
+  }
+
   const { data: shop } = await supabase
     .from('shops')
     .select('*')
-    .eq('owner_id', user!.id)
+    .eq('owner_id', user.id)
     .single()
 
   return (

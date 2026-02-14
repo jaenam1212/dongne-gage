@@ -62,23 +62,31 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const supabase = await createClient()
+  try {
+    const supabase = await createClient()
 
-  const { error } = await supabase.from('push_subscriptions').insert({
-    shop_id: shopId,
-    endpoint: endpoint,
-    p256dh: keys.p256dh,
-    auth: keys.auth,
-    customer_phone: null,
-  })
+    const { error } = await supabase.from('push_subscriptions').insert({
+      shop_id: shopId,
+      endpoint: endpoint,
+      p256dh: keys.p256dh,
+      auth: keys.auth,
+      customer_phone: null,
+    })
 
-  if (error) {
-    console.error('Push subscription error:', error)
+    if (error) {
+      console.error('Push subscription error:', error)
+      return NextResponse.json(
+        { error: '구독에 실패했습니다. 잠시 후 다시 시도해주세요.' },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({ success: true }, { status: 201 })
+  } catch (error) {
+    console.error('Unhandled push subscribe API error:', error)
     return NextResponse.json(
-      { error: '구독에 실패했습니다. 잠시 후 다시 시도해주세요.' },
+      { error: '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.' },
       { status: 500 }
     )
   }
-
-  return NextResponse.json({ success: true }, { status: 201 })
 }
