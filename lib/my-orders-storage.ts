@@ -11,6 +11,7 @@ export interface StoredOrder {
   quantity: number
   total_price: number
   pickup_date: string | null
+  pickup_time: string | null
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed'
   customer_name: string
   created_at: string

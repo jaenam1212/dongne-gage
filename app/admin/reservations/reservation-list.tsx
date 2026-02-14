@@ -18,6 +18,7 @@ interface Reservation {
   customer_phone: string
   quantity: number
   pickup_date: string | null
+  pickup_time: string | null
   memo: string | null
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed'
   created_at: string
@@ -57,7 +58,7 @@ const STATUS_LABELS = {
 
 function buildReservationsCsv(reservations: Reservation[]): string {
   const BOM = '\uFEFF'
-  const headers = ['예약일시', '상품명', '예약자', '연락처', '수량', '단가', '금액', '픽업희망일', '메모', '상태']
+  const headers = ['예약일시', '상품명', '예약자', '연락처', '수량', '단가', '금액', '픽업희망일', '픽업희망시간', '메모', '상태']
   const escape = (v: string | number | null | undefined): string => {
     if (v == null) return ''
     const s = String(v).replace(/"/g, '""')
@@ -70,6 +71,7 @@ function buildReservationsCsv(reservations: Reservation[]): string {
     const amount = price * r.quantity
     const dateStr = r.created_at ? formatDateTime(r.created_at) : ''
     const pickupStr = r.pickup_date ? formatDateKST(r.pickup_date) : ''
+    const pickupTimeStr = r.pickup_time ?? ''
     return [
       dateStr,
       title,
@@ -79,6 +81,7 @@ function buildReservationsCsv(reservations: Reservation[]): string {
       price,
       amount,
       pickupStr,
+      pickupTimeStr,
       r.memo ?? '',
       STATUS_LABELS[r.status],
     ].map((val) => escape(val)).join(',')
@@ -392,9 +395,11 @@ function ReservationCard({
               <span className="mx-2 text-stone-300">·</span>
               <span className="font-medium">금액:</span> {formatKoreanWon(reservation.products.price * reservation.quantity)}
             </p>
-            {reservation.pickup_date && (
+            {(reservation.pickup_date || reservation.pickup_time) && (
               <p>
-                <span className="font-medium">픽업일:</span> {formatDate(reservation.pickup_date)}
+                <span className="font-medium">픽업:</span>{' '}
+                {reservation.pickup_date ? formatDate(reservation.pickup_date) : '날짜 미정'}
+                {reservation.pickup_time ? ` ${reservation.pickup_time}` : ''}
               </p>
             )}
             {reservation.memo && (

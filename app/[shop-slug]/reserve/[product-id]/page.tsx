@@ -25,7 +25,7 @@ async function getProductWithShop(slug: string, productId: string) {
 
   const { data: product } = await supabase
     .from('products')
-    .select('id, title, description, price, image_url, max_quantity, max_quantity_per_customer, reserved_count, deadline, option_groups, is_active')
+    .select('id, title, description, price, image_url, max_quantity, max_quantity_per_customer, reserved_count, deadline, option_groups, pickup_time_required, is_active')
     .eq('id', productId)
     .eq('shop_id', shop.id)
     .eq('is_active', true)

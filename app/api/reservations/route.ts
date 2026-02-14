@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 const PHONE_REGEX = /^01[0-9]?[0-9]{3,4}[0-9]{4}$/
+const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/
 
 function getClientIp(request: NextRequest): string {
   return (
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
     customer_phone?: string
     quantity?: number
     pickup_date?: string | null
+    pickup_time?: string | null
     memo?: string | null
     privacy_agreed?: boolean
     selected_options?: Record<string, string>
@@ -63,6 +65,7 @@ export async function POST(request: NextRequest) {
     customer_phone,
     quantity,
     pickup_date,
+    pickup_time,
     memo,
     privacy_agreed,
     selected_options,
@@ -73,6 +76,7 @@ export async function POST(request: NextRequest) {
   }
 
   const normalizedPhone = customer_phone.replace(/-/g, '')
+  const normalizedPickupTime = typeof pickup_time === 'string' ? pickup_time.trim() : ''
   if (!PHONE_REGEX.test(normalizedPhone)) {
     return NextResponse.json(
       { error: '전화번호 형식이 올바르지 않습니다' },
@@ -82,6 +86,10 @@ export async function POST(request: NextRequest) {
 
   if (quantity < 1 || quantity > 99) {
     return NextResponse.json({ error: '수량이 올바르지 않습니다' }, { status: 400 })
+  }
+
+  if (normalizedPickupTime && !TIME_REGEX.test(normalizedPickupTime)) {
+    return NextResponse.json({ error: '픽업 시간 형식이 올바르지 않습니다' }, { status: 400 })
   }
 
   if (!privacy_agreed) {
@@ -96,7 +104,7 @@ export async function POST(request: NextRequest) {
 
     const { data: product, error: productError } = await supabase
       .from('products')
-      .select('shop_id, option_groups')
+      .select('shop_id, option_groups, pickup_time_required')
       .eq('id', product_id)
       .single()
 
@@ -113,6 +121,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: '현재 해당 가게는 결제 갱신이 필요해 예약을 받고 있지 않습니다.' },
         { status: 403 }
+      )
+    }
+
+    if (product.pickup_time_required && !pickup_date) {
+      return NextResponse.json(
+        { error: '픽업 날짜를 선택해주세요' },
+        { status: 400 }
+      )
+    }
+
+    if (product.pickup_time_required && !normalizedPickupTime) {
+      return NextResponse.json(
+        { error: '픽업 시간을 입력해주세요' },
+        { status: 400 }
       )
     }
 
@@ -154,6 +176,7 @@ export async function POST(request: NextRequest) {
       p_customer_phone: normalizedPhone,
       p_quantity: quantity,
       p_pickup_date: pickup_date || null,
+      p_pickup_time: normalizedPickupTime || null,
       p_memo: memo?.trim() || null,
       p_privacy_agreed: privacy_agreed,
       p_selected_options: normalizedSelectedOptions,
@@ -183,6 +206,12 @@ export async function POST(request: NextRequest) {
           { status: 409 }
         )
       }
+      if (error.message?.includes('PICKUP_DATE_REQUIRED')) {
+        return NextResponse.json({ error: '픽업 날짜를 선택해주세요' }, { status: 400 })
+      }
+      if (error.message?.includes('PICKUP_TIME_REQUIRED')) {
+        return NextResponse.json({ error: '픽업 시간을 입력해주세요' }, { status: 400 })
+      }
       return NextResponse.json(
         { error: '예약에 실패했습니다. 잠시 후 다시 시도해주세요.' },
         { status: 500 }
@@ -196,6 +225,7 @@ export async function POST(request: NextRequest) {
           customer_name: data.customer_name,
           quantity: data.quantity,
           pickup_date: data.pickup_date,
+          pickup_time: data.pickup_time,
           status: data.status,
         },
       },

@@ -260,6 +260,7 @@ export async function createProduct(formData: FormData) {
   const maxQuantityRaw = formData.get('maxQuantity') as string
   const maxPerCustomerRaw = formData.get('maxQuantityPerCustomer') as string
   const deadlineRaw = formData.get('deadline') as string
+  const pickupTimeRequired = (formData.get('pickupTimeRequired') as string) === 'true'
   const maxQtyNum = maxQuantityRaw ? parseInt(maxQuantityRaw, 10) : NaN
   const max_quantity = Number.isNaN(maxQtyNum) || maxQtyNum <= 0 ? null : maxQtyNum
   const perCustomerNum = maxPerCustomerRaw ? parseInt(maxPerCustomerRaw, 10) : NaN
@@ -289,6 +290,7 @@ export async function createProduct(formData: FormData) {
       max_quantity,
       max_quantity_per_customer,
       deadline,
+      pickup_time_required: pickupTimeRequired,
       option_groups: optionsParsed.groups.length > 0 ? optionsParsed.groups : null,
       is_active: true,
     })
@@ -425,6 +427,7 @@ export async function updateProduct(productId: string, formData: FormData) {
   const max_quantity_per_customer = Number.isNaN(perCustomerNum) || perCustomerNum < 1 ? null : perCustomerNum
   const deadlineRaw = formData.get('deadline') as string
   const deadline = deadlineRaw ? fromKSTToISOUTC(deadlineRaw) : null
+  const pickupTimeRequired = (formData.get('pickupTimeRequired') as string) === 'true'
 
   const inventoryLinkInput = await resolveInventoryLinkInput(supabase, product.shop_id, formData)
   if (inventoryLinkInput.error) {
@@ -448,6 +451,7 @@ export async function updateProduct(productId: string, formData: FormData) {
       max_quantity: newMaxQuantity,
       max_quantity_per_customer,
       deadline,
+      pickup_time_required: pickupTimeRequired,
       option_groups: optionsParsed.groups.length > 0 ? optionsParsed.groups : null,
     })
     .eq('id', productId)

@@ -102,7 +102,10 @@ function MyOrdersContent() {
                     </p>
                     <p className="mt-1 text-xs text-stone-500">
                       {order.quantity}개 · 예약일 {formatDate(order.created_at)}
-                      {order.pickup_date && ` · 픽업 ${formatDate(order.pickup_date)}`}
+                      {(order.pickup_date || order.pickup_time) &&
+                        ` · 픽업 ${order.pickup_date ? formatDate(order.pickup_date) : ''}${
+                          order.pickup_time ? ` ${order.pickup_time}` : ''
+                        }`}
                     </p>
                   </div>
                   <span

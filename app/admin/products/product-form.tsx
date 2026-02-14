@@ -30,6 +30,7 @@ interface Product {
   inventory_consume_per_sale?: number | null
   image_urls?: string[]
   option_groups?: { name: string; values: string[]; required?: boolean }[] | null
+  pickup_time_required?: boolean
 }
 
 interface InventoryOption {
@@ -68,6 +69,7 @@ export function ProductForm({ product, inventoryOptions, action, submitLabel }: 
   const [inventoryLinkEnabled, setInventoryLinkEnabled] = useState(!!product?.inventory_link_enabled)
   const [selectedInventoryItemId, setSelectedInventoryItemId] = useState(product?.inventory_item_id ?? '')
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [pickupTimeRequired, setPickupTimeRequired] = useState(!!product?.pickup_time_required)
   const [optionRows, setOptionRows] = useState<ProductOptionRow[]>(() => {
     const groups = product?.option_groups ?? []
     if (groups.length === 0) {
@@ -407,6 +409,25 @@ export function ProductForm({ product, inventoryOptions, action, submitLabel }: 
               </div>
             </div>
             <p className="text-xs text-stone-400">시간을 비우면 해당일 23:59 마감입니다.</p>
+
+            <div className="space-y-2 rounded-xl border border-stone-200 bg-stone-50 p-4">
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="pickupTimeRequired"
+                  checked={pickupTimeRequired}
+                  onCheckedChange={(checked) => setPickupTimeRequired(checked === true)}
+                />
+                <div>
+                  <Label htmlFor="pickupTimeRequired" className="text-stone-800 cursor-pointer">
+                    구매자 픽업 시간 필수 입력
+                  </Label>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    끄면 구매자는 픽업 시간을 비워둘 수 있습니다.
+                  </p>
+                </div>
+              </div>
+              <input type="hidden" name="pickupTimeRequired" value={pickupTimeRequired ? 'true' : 'false'} />
+            </div>
 
             <div className="space-y-3 rounded-xl border border-stone-200 bg-stone-50 p-4">
               <div className="flex items-start gap-2">

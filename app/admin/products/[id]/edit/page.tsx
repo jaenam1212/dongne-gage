@@ -67,6 +67,7 @@ export default async function EditProductPage({
         max_quantity_per_customer: product.max_quantity_per_customer ?? undefined,
         reserved_count: product.reserved_count,
         deadline: product.deadline,
+        pickup_time_required: product.pickup_time_required ?? false,
         option_groups: product.option_groups ?? null,
         inventory_link_enabled: !!activeLink,
         inventory_item_id: activeLink?.inventory_item_id ?? null,

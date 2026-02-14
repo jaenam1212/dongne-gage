@@ -1,11 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import TimePicker from 'react-time-picker'
 import { Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import 'react-time-picker/dist/TimePicker.css'
-import 'react-clock/dist/Clock.css'
 
 type TimePickerFieldProps = {
   name: string
@@ -15,12 +12,15 @@ type TimePickerFieldProps = {
   inputClassName?: string
 }
 
-function formatDisplay(value: string | null): string {
-  if (!value) return ''
-  const parts = value.split(':')
-  const h = parts[0]
-  const m = parts[1] || '00'
-  return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`
+function normalizeTimeValue(raw: string | undefined): string {
+  if (!raw) return ''
+  const [h, m] = raw.split(':')
+  if (h == null || m == null) return ''
+  const hour = Number(h)
+  const minute = Number(m)
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return ''
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return ''
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
 }
 
 export function TimePickerField({
@@ -30,56 +30,40 @@ export function TimePickerField({
   className,
   inputClassName,
 }: TimePickerFieldProps) {
-  const [open, setOpen] = React.useState(false)
-  const [value, setValue] = React.useState<string | null>(defaultValue || null)
-  const containerRef = React.useRef<HTMLDivElement>(null)
+  const [value, setValue] = React.useState<string>(normalizeTimeValue(defaultValue))
 
   React.useEffect(() => {
-    if (!open) return
-    function handleClick(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [open])
-
-  const displayText = value ? formatDisplay(value) : placeholder
+    setValue(normalizeTimeValue(defaultValue))
+  }, [defaultValue])
 
   return (
-    <div ref={containerRef} className={cn('relative', className)}>
-      <input type="hidden" name={name} value={value || ''} readOnly />
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
+    <div className={cn('relative', className)}>
+      <div
         className={cn(
-          'flex h-9 w-full items-center gap-2 rounded-md border border-stone-200 bg-stone-50 px-3 py-1 text-left text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-stone-400 focus-visible:ring-[3px] focus-visible:ring-stone-400/30 md:text-sm',
-          !value && 'text-stone-400',
+          'flex h-9 w-full items-center gap-2 rounded-md border border-stone-200 bg-stone-50 px-3 py-1 shadow-xs transition-[color,box-shadow] focus-within:border-stone-400 focus-within:ring-[3px] focus-within:ring-stone-400/30',
           inputClassName
         )}
       >
         <Clock className="h-4 w-4 shrink-0 text-stone-400" />
-        <span className="truncate">{displayText}</span>
-      </button>
-      {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 rounded-xl border border-stone-200 bg-white p-3 shadow-lg [&_.react-time-picker]:!border-0 [&_.react-time-picker__wrapper]:!rounded-lg [&_.react-time-picker__wrapper]:!border-stone-200">
-          <TimePicker
-            onChange={(v) => {
-              setValue(v as string | null)
-              setOpen(false)
-            }}
-            value={value}
-            format="HH:mm"
-            clockIcon={null}
-            clearIcon={null}
-            locale="ko-KR"
-            isOpen={true}
-            closeClock={true}
-            className="!border-0"
-          />
-        </div>
-      )}
+        <input
+          type="time"
+          name={name}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          step={60}
+          aria-label={placeholder}
+          className="h-full w-full border-0 bg-transparent text-sm text-stone-900 outline-none"
+        />
+        {value ? (
+          <button
+            type="button"
+            onClick={() => setValue('')}
+            className="shrink-0 rounded px-1 py-0.5 text-xs text-stone-500 hover:bg-stone-200 hover:text-stone-700"
+          >
+            초기화
+          </button>
+        ) : null}
+      </div>
     </div>
   )
 }

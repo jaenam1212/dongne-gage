@@ -15,6 +15,7 @@ import toast, { Toaster } from 'react-hot-toast'
 import { saveOrderToMyOrders } from '@/lib/my-orders-storage'
 import { getTodayKST } from '@/lib/datetime-kst'
 import { DatePicker } from '@/components/ui/date-picker'
+import { TimePickerField } from '@/components/ui/time-picker'
 import { trackUsageEvent } from '@/lib/usage-events'
 
 interface Product {
@@ -27,6 +28,7 @@ interface Product {
   reserved_count: number
   deadline: string | null
   option_groups?: { name: string; values: string[]; required?: boolean }[] | null
+  pickup_time_required?: boolean
 }
 
 interface ReservationResult {
@@ -34,9 +36,11 @@ interface ReservationResult {
   customer_name: string
   quantity: number
   pickup_date: string | null
+  pickup_time: string | null
 }
 
 const PHONE_REGEX = /^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$/
+const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/
 
 function normalizePhone(phone: string): string {
   return phone.replace(/-/g, '')
@@ -154,6 +158,7 @@ export function ReservationForm({
     const phone = (form.get('customer_phone') as string)?.trim()
     const quantity = parseInt(form.get('quantity') as string) || 0
     const pickupDate = form.get('pickup_date') as string
+    const pickupTime = (form.get('pickup_time') as string)?.trim()
     const memo = form.get('memo') as string
 
     if (!name) newErrors.customer_name = '이름을 입력해주세요'
@@ -170,6 +175,15 @@ export function ReservationForm({
           : `최대 ${maxQty}개까지 예약할 수 있습니다`
     }
     if (!privacyAgreed) newErrors.privacy = '개인정보 동의가 필요합니다'
+    if (pickupTime && !TIME_REGEX.test(pickupTime)) {
+      newErrors.pickup_time = '시간 형식이 올바르지 않습니다'
+    }
+    if (product.pickup_time_required && !pickupDate) {
+      newErrors.pickup_date = '픽업 날짜를 선택해주세요'
+    }
+    if (product.pickup_time_required && !pickupTime) {
+      newErrors.pickup_time = '픽업 시간을 입력해주세요'
+    }
     for (const group of optionGroups) {
       const value = selectedOptions[group.name]
       const isRequired = group.required !== false
@@ -196,6 +210,7 @@ export function ReservationForm({
           customer_phone: normalizePhone(phone),
           quantity,
           pickup_date: pickupDate || null,
+          pickup_time: pickupTime || null,
           memo: memo?.trim() || null,
           privacy_agreed: privacyAgreed,
           selected_options: selectedOptions,
@@ -237,6 +252,7 @@ export function ReservationForm({
           quantity: reservation.quantity,
           total_price: product.price * reservation.quantity,
           pickup_date: reservation.pickup_date ?? null,
+          pickup_time: reservation.pickup_time ?? null,
           status: (reservation.status as 'pending' | 'confirmed' | 'cancelled' | 'completed') ?? 'pending',
           customer_name: reservation.customer_name,
           created_at: new Date().toISOString(),
@@ -302,10 +318,13 @@ export function ReservationForm({
               <p className="text-xs text-stone-400">예약자</p>
               <p className="mt-0.5 font-medium text-stone-700">{result.customer_name}</p>
             </div>
-            {result.pickup_date && (
+            {(result.pickup_date || result.pickup_time) && (
               <div>
-                <p className="text-xs text-stone-400">픽업일</p>
-                <p className="mt-0.5 font-medium text-stone-700">{result.pickup_date}</p>
+                <p className="text-xs text-stone-400">픽업 일정</p>
+                <p className="mt-0.5 font-medium text-stone-700">
+                  {result.pickup_date ?? '날짜 미정'}
+                  {result.pickup_time ? ` ${result.pickup_time}` : ''}
+                </p>
               </div>
             )}
             <div>
@@ -548,6 +567,9 @@ export function ReservationForm({
           <div className="space-y-2">
             <Label htmlFor="pickup_date" className="text-stone-700">
               픽업 희망일
+              {product.pickup_time_required ? (
+                <span className="text-red-500"> *</span>
+              ) : null}
             </Label>
             <DatePicker
               name="pickup_date"
@@ -556,6 +578,29 @@ export function ReservationForm({
               className="w-full"
               inputClassName="h-11"
             />
+            {errors.pickup_date && (
+              <p className="text-xs text-red-500">{errors.pickup_date}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="pickup_time" className="text-stone-700">
+              픽업 희망 시간
+              {product.pickup_time_required ? (
+                <span className="text-red-500"> *</span>
+              ) : (
+                <span className="text-stone-400 font-normal"> (선택)</span>
+              )}
+            </Label>
+            <TimePickerField
+              name="pickup_time"
+              placeholder="시간 선택"
+              className="w-full"
+              inputClassName="h-11"
+            />
+            {errors.pickup_time && (
+              <p className="text-xs text-red-500">{errors.pickup_time}</p>
+            )}
           </div>
 
           <div className="space-y-2">
