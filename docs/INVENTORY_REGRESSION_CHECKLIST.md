@@ -80,3 +80,58 @@ FROM (
 ) t
 WHERE t.cached_reserved_count <> t.ledger_reserved_count;
 ```
+
+## 6) 재고 마스터/상품 연동 검증
+
+1. `inventory_items`에 `SKU=ING-001, current_quantity=10` 생성
+2. 상품 1개에 `product_inventory_links.consume_per_sale=1`로 연동
+3. 예약 `quantity=3` 생성
+4. 기대 결과:
+   - `inventory_items.current_quantity`가 `7`로 감소
+5. 예약 상태를 `cancelled`로 변경
+6. 기대 결과:
+   - `inventory_items.current_quantity`가 `10`으로 복원
+
+## 7) 업로드 파이프라인 검증 (xlsx/csv)
+
+1. 템플릿 다운로드 후 `InventoryItems`, `ProductMappings` 시트 작성
+2. dry-run으로 업로드
+3. 기대 결과:
+   - 데이터 반영 없이 성공/실패 행수만 집계
+4. 실제 반영(dry-run off) 업로드
+5. 기대 결과:
+   - `inventory_items` upsert
+   - `product_inventory_links` upsert
+   - `inventory_import_jobs`, `inventory_import_rows` 기록
+
+## 8) 운영 점검 SQL (연동 재고)
+
+### 재고 부족 항목 조회 (minimum 이하)
+
+```sql
+SELECT
+  i.id,
+  i.sku,
+  i.name,
+  i.current_quantity,
+  i.minimum_quantity
+FROM inventory_items i
+WHERE i.is_active = true
+  AND i.current_quantity <= i.minimum_quantity
+ORDER BY i.current_quantity ASC, i.name ASC;
+```
+
+### 상품-재고 연동 현황 조회
+
+```sql
+SELECT
+  p.title AS product_title,
+  i.sku,
+  i.name AS inventory_name,
+  pil.consume_per_sale,
+  pil.is_enabled
+FROM product_inventory_links pil
+JOIN products p ON p.id = pil.product_id
+JOIN inventory_items i ON i.id = pil.inventory_item_id
+ORDER BY p.title ASC, i.name ASC;
+```

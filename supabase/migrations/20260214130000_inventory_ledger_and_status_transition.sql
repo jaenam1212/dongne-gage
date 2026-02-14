@@ -158,16 +158,20 @@ BEGIN
     RAISE EXCEPTION 'INVALID_STATUS';
   END IF;
 
-  SELECT r.*, s.owner_id
-  INTO v_reservation, v_owner_id
+  SELECT r.*
+  INTO v_reservation
   FROM reservations r
-  JOIN shops s ON s.id = r.shop_id
   WHERE r.id = p_reservation_id
   FOR UPDATE;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'RESERVATION_NOT_FOUND';
   END IF;
+
+  SELECT s.owner_id
+  INTO v_owner_id
+  FROM shops s
+  WHERE s.id = v_reservation.shop_id;
 
   IF p_actor IS NOT NULL AND v_owner_id <> p_actor THEN
     RAISE EXCEPTION 'FORBIDDEN';

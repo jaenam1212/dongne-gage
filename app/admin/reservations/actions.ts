@@ -27,6 +27,9 @@ function mapTransitionError(message?: string): string {
   if (message.includes('RESERVATION_NOT_FOUND')) return '예약을 찾을 수 없습니다'
   if (message.includes('INVALID_TRANSITION')) return '허용되지 않는 상태 변경입니다'
   if (message.includes('STOCK_EXCEEDED')) return '재고가 부족하여 상태를 변경할 수 없습니다'
+  if (message.includes('INVENTORY_SHORTAGE') || message.includes('INVENTORY_INACTIVE')) {
+    return '연동 재고가 부족하거나 비활성 상태라 변경할 수 없습니다'
+  }
   if (message.includes('PER_CUSTOMER_LIMIT')) return '1인당 구매 제한으로 상태를 변경할 수 없습니다'
   return '상태 변경에 실패했습니다'
 }

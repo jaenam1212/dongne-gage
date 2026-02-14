@@ -6,6 +6,67 @@ import { createClient } from '@/lib/supabase/server'
 import { sendPushToShop } from '@/lib/push'
 import { fromKSTToISOUTC } from '@/lib/datetime-kst'
 
+async function resolveInventoryLinkInput(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  shopId: string,
+  formData: FormData
+): Promise<{
+  enabled: boolean
+  inventoryItemId: string | null
+  consumePerSale: number
+  error?: string
+}> {
+  const enabled = (formData.get('inventoryLinkEnabled') as string) === 'true'
+  const inventoryItemIdRaw = (formData.get('inventoryItemId') as string)?.trim()
+  const consumeRaw = (formData.get('inventoryConsumePerSale') as string)?.trim()
+  const consumeParsed = consumeRaw ? Number.parseInt(consumeRaw, 10) : 1
+  const consumePerSale = Number.isNaN(consumeParsed) || consumeParsed < 1 ? 1 : consumeParsed
+
+  if (!enabled) {
+    return { enabled: false, inventoryItemId: null, consumePerSale }
+  }
+
+  if (!inventoryItemIdRaw) {
+    return {
+      enabled: true,
+      inventoryItemId: null,
+      consumePerSale,
+      error: '재고 연동을 사용하려면 재고 항목을 선택해주세요',
+    }
+  }
+
+  const { data: inventoryItem, error } = await supabase
+    .from('inventory_items')
+    .select('id, is_active')
+    .eq('id', inventoryItemIdRaw)
+    .eq('shop_id', shopId)
+    .single()
+
+  if (error || !inventoryItem) {
+    return {
+      enabled: true,
+      inventoryItemId: null,
+      consumePerSale,
+      error: '선택한 재고 항목을 찾을 수 없습니다',
+    }
+  }
+
+  if (!inventoryItem.is_active) {
+    return {
+      enabled: true,
+      inventoryItemId: null,
+      consumePerSale,
+      error: '비활성 재고 항목은 연동할 수 없습니다',
+    }
+  }
+
+  return {
+    enabled: true,
+    inventoryItemId: inventoryItem.id,
+    consumePerSale,
+  }
+}
+
 export async function createProduct(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -64,19 +125,47 @@ export async function createProduct(formData: FormData) {
   const max_quantity_per_customer = Number.isNaN(perCustomerNum) || perCustomerNum < 1 ? null : perCustomerNum
   const deadline = deadlineRaw ? fromKSTToISOUTC(deadlineRaw) : null
 
-  const { error } = await supabase.from('products').insert({
-    shop_id: shop.id,
-    title: title.trim(),
-    description: (formData.get('description') as string) || null,
-    price,
-    image_url,
-    max_quantity,
-    max_quantity_per_customer,
-    deadline,
-    is_active: true,
-  })
+  const inventoryLinkInput = await resolveInventoryLinkInput(supabase, shop.id, formData)
+  if (inventoryLinkInput.error) {
+    return { error: inventoryLinkInput.error }
+  }
 
-  if (error) return { error: '상품 등록에 실패했습니다' }
+  const { data: insertedProduct, error } = await supabase
+    .from('products')
+    .insert({
+      shop_id: shop.id,
+      title: title.trim(),
+      description: (formData.get('description') as string) || null,
+      price,
+      image_url,
+      max_quantity,
+      max_quantity_per_customer,
+      deadline,
+      is_active: true,
+    })
+    .select('id')
+    .single()
+
+  if (error || !insertedProduct) return { error: '상품 등록에 실패했습니다' }
+
+  if (inventoryLinkInput.enabled && inventoryLinkInput.inventoryItemId) {
+    const { error: linkError } = await supabase
+      .from('product_inventory_links')
+      .upsert(
+        {
+          product_id: insertedProduct.id,
+          inventory_item_id: inventoryLinkInput.inventoryItemId,
+          consume_per_sale: inventoryLinkInput.consumePerSale,
+          is_enabled: true,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'product_id,inventory_item_id' }
+      )
+
+    if (linkError) {
+      return { error: '상품은 등록되었지만 재고 연동 저장에 실패했습니다' }
+    }
+  }
 
   try {
     await sendPushToShop(shop.id, {
@@ -159,6 +248,11 @@ export async function updateProduct(productId: string, formData: FormData) {
   const deadlineRaw = formData.get('deadline') as string
   const deadline = deadlineRaw ? fromKSTToISOUTC(deadlineRaw) : null
 
+  const inventoryLinkInput = await resolveInventoryLinkInput(supabase, product.shop_id, formData)
+  if (inventoryLinkInput.error) {
+    return { error: inventoryLinkInput.error }
+  }
+
   const { error } = await supabase
     .from('products')
     .update({
@@ -174,7 +268,37 @@ export async function updateProduct(productId: string, formData: FormData) {
 
   if (error) return { error: '상품 수정에 실패했습니다' }
 
+  if (inventoryLinkInput.enabled && inventoryLinkInput.inventoryItemId) {
+    const { error: upsertLinkError } = await supabase
+      .from('product_inventory_links')
+      .upsert(
+        {
+          product_id: productId,
+          inventory_item_id: inventoryLinkInput.inventoryItemId,
+          consume_per_sale: inventoryLinkInput.consumePerSale,
+          is_enabled: true,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'product_id,inventory_item_id' }
+      )
+    if (upsertLinkError) {
+      return { error: '상품 수정은 완료되었지만 재고 연동 저장에 실패했습니다' }
+    }
+
+    await supabase
+      .from('product_inventory_links')
+      .update({ is_enabled: false, updated_at: new Date().toISOString() })
+      .eq('product_id', productId)
+      .neq('inventory_item_id', inventoryLinkInput.inventoryItemId)
+  } else {
+    await supabase
+      .from('product_inventory_links')
+      .update({ is_enabled: false, updated_at: new Date().toISOString() })
+      .eq('product_id', productId)
+  }
+
   revalidatePath('/admin/products')
+  revalidatePath('/admin/inventory')
   redirect('/admin/products')
 }
 

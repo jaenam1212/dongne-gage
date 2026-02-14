@@ -115,6 +115,8 @@ export async function POST(request: NextRequest) {
     }
     if (
       error.message?.includes('STOCK_EXCEEDED') ||
+      error.message?.includes('INVENTORY_SHORTAGE') ||
+      error.message?.includes('INVENTORY_INACTIVE') ||
       error.message?.includes('수량') ||
       error.message?.includes('quantity') ||
       error.message?.includes('sold out')

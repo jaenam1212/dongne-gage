@@ -24,6 +24,21 @@ export default async function EditProductPage({
     return notFound()
   }
 
+  const { data: inventoryItems } = await supabase
+    .from('inventory_items')
+    .select('id, sku, name, current_quantity, is_active')
+    .eq('shop_id', product.shop_id)
+    .order('name', { ascending: true })
+
+  const { data: activeLinks } = await supabase
+    .from('product_inventory_links')
+    .select('inventory_item_id, consume_per_sale, is_enabled')
+    .eq('product_id', product.id)
+    .eq('is_enabled', true)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+
+  const activeLink = activeLinks?.[0]
   const boundAction = updateProduct.bind(null, id)
 
   return (
@@ -38,7 +53,11 @@ export default async function EditProductPage({
         max_quantity_per_customer: product.max_quantity_per_customer ?? undefined,
         reserved_count: product.reserved_count,
         deadline: product.deadline,
+        inventory_link_enabled: !!activeLink,
+        inventory_item_id: activeLink?.inventory_item_id ?? null,
+        inventory_consume_per_sale: activeLink?.consume_per_sale ?? 1,
       }}
+      inventoryOptions={inventoryItems ?? []}
       action={boundAction}
       submitLabel="저장"
     />

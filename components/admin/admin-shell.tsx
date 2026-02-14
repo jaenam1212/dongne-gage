@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Package,
   CalendarCheck,
+  Boxes,
   Settings,
   LogOut,
   Store,
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
   { href: '/admin/dashboard', label: '대시보드', icon: LayoutDashboard },
   { href: '/admin/products', label: '상품 관리', icon: Package },
   { href: '/admin/reservations', label: '예약 관리', icon: CalendarCheck },
+  { href: '/admin/inventory', label: '재고 관리', icon: Boxes },
   { href: '/admin/settings', label: '설정', icon: Settings },
 ]
 

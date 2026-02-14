@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import { ImagePlus, Loader2, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import toast, { Toaster } from 'react-hot-toast'
@@ -23,19 +25,32 @@ interface Product {
   max_quantity_per_customer?: number | null
   reserved_count: number
   deadline: string | null
+  inventory_link_enabled?: boolean
+  inventory_item_id?: string | null
+  inventory_consume_per_sale?: number | null
+}
+
+interface InventoryOption {
+  id: string
+  sku: string
+  name: string
+  current_quantity: number
+  is_active: boolean
 }
 
 interface ProductFormProps {
   product?: Product
+  inventoryOptions: InventoryOption[]
   action: (formData: FormData) => Promise<{ error?: string } | undefined>
   submitLabel: string
 }
 
-export function ProductForm({ product, action, submitLabel }: ProductFormProps) {
+export function ProductForm({ product, inventoryOptions, action, submitLabel }: ProductFormProps) {
   const [loading, setLoading] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(product?.image_url ?? null)
   const [priceDisplay, setPriceDisplay] = useState(product?.price ? formatKoreanWon(product.price) : '')
   const [error, setError] = useState<string | null>(null)
+  const [inventoryLinkEnabled, setInventoryLinkEnabled] = useState(!!product?.inventory_link_enabled)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -248,6 +263,74 @@ export function ProductForm({ product, action, submitLabel }: ProductFormProps) 
             </div>
             <p className="text-xs text-stone-400">시간을 비우면 해당일 23:59 마감입니다.</p>
 
+            <div className="space-y-3 rounded-xl border border-stone-200 bg-stone-50 p-4">
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="inventoryLinkEnabled"
+                  checked={inventoryLinkEnabled}
+                  onCheckedChange={(checked) => setInventoryLinkEnabled(checked === true)}
+                />
+                <div>
+                  <Label htmlFor="inventoryLinkEnabled" className="text-stone-800 cursor-pointer">
+                    재고 연동 사용
+                  </Label>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    사용 시 예약 수량만큼 연결된 재고가 자동 차감/복원됩니다.
+                  </p>
+                </div>
+              </div>
+
+              <input
+                type="hidden"
+                name="inventoryLinkEnabled"
+                value={inventoryLinkEnabled ? 'true' : 'false'}
+              />
+
+              {inventoryLinkEnabled && (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="inventoryItemId" className="text-stone-700">
+                      연동 재고 항목 <span className="text-red-500">*</span>
+                    </Label>
+                    <select
+                      id="inventoryItemId"
+                      name="inventoryItemId"
+                      required={inventoryLinkEnabled}
+                      defaultValue={product?.inventory_item_id ?? ''}
+                      className="h-10 w-full rounded-md border border-stone-200 bg-white px-3 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-400"
+                    >
+                      <option value="">재고 항목 선택</option>
+                      {inventoryOptions.map((item) => (
+                        <option
+                          key={item.id}
+                          value={item.id}
+                          disabled={!item.is_active}
+                        >
+                          {item.name} ({item.sku}) · 현재 {item.current_quantity}
+                          {!item.is_active ? ' · 비활성' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="inventoryConsumePerSale" className="text-stone-700">
+                      판매당 차감 수량
+                    </Label>
+                    <Input
+                      id="inventoryConsumePerSale"
+                      name="inventoryConsumePerSale"
+                      type="number"
+                      min={1}
+                      defaultValue={product?.inventory_consume_per_sale ?? 1}
+                      placeholder="기본값 1"
+                      className="border-stone-200 bg-white focus-visible:ring-stone-400"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label className="text-stone-700">상품 이미지</Label>
               <div className="flex items-center gap-4">
@@ -257,9 +340,12 @@ export function ProductForm({ product, action, submitLabel }: ProductFormProps) 
                   className="flex h-24 w-24 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-stone-200 bg-stone-50 hover:border-stone-300 hover:bg-stone-100 transition-colors overflow-hidden"
                 >
                   {previewUrl ? (
-                    <img
+                    <Image
                       src={previewUrl}
                       alt="상품 이미지 미리보기"
+                      width={96}
+                      height={96}
+                      unoptimized
                       className="h-full w-full object-cover"
                     />
                   ) : (
