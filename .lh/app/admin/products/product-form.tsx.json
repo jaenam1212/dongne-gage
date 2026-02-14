@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 8,
+            "activePatchIndex": 9,
             "patches": [
                 {
                     "date": 1770978593446,
@@ -40,6 +40,10 @@
                 {
                     "date": 1770985534847,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -9,8 +9,9 @@\n import Link from 'next/link'\n import toast, { Toaster } from 'react-hot-toast'\n import { formatKoreanWon, MAX_PRODUCT_PRICE } from '@/lib/utils'\n import { toKSTDateOnly, toKSTTimeOnly, getTodayKST } from '@/lib/datetime-kst'\n+import { DatePicker } from '@/components/ui/date-picker'\n \n interface Product {\n   id: string\n   title: string\n@@ -223,15 +224,14 @@\n               <div className=\"space-y-2\">\n                 <Label htmlFor=\"deadlineDate\" className=\"text-stone-700\">\n                   예약 마감 날짜\n                 </Label>\n-                <Input\n-                  id=\"deadlineDate\"\n+                <DatePicker\n                   name=\"deadlineDate\"\n-                  type=\"date\"\n+                  defaultValue={toKSTDateOnly(product?.deadline ?? null)}\n                   min={getTodayKST()}\n-                  defaultValue={toKSTDateOnly(product?.deadline ?? null)}\n-                  className=\"border-stone-200 bg-stone-50 focus-visible:ring-stone-400\"\n+                  placeholder=\"날짜 선택\"\n+                  inputClassName=\"h-10\"\n                 />\n               </div>\n               <div className=\"space-y-2\">\n                 <Label htmlFor=\"deadlineTime\" className=\"text-stone-700\">\n"
+                },
+                {
+                    "date": 1770985775075,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -10,8 +10,9 @@\n import toast, { Toaster } from 'react-hot-toast'\n import { formatKoreanWon, MAX_PRODUCT_PRICE } from '@/lib/utils'\n import { toKSTDateOnly, toKSTTimeOnly, getTodayKST } from '@/lib/datetime-kst'\n import { DatePicker } from '@/components/ui/date-picker'\n+import { TimePickerField } from '@/components/ui/time-picker'\n \n interface Product {\n   id: string\n   title: string\n@@ -236,14 +237,13 @@\n               <div className=\"space-y-2\">\n                 <Label htmlFor=\"deadlineTime\" className=\"text-stone-700\">\n                   마감 시간 <span className=\"text-stone-400 font-normal\">(선택)</span>\n                 </Label>\n-                <Input\n-                  id=\"deadlineTime\"\n+                <TimePickerField\n                   name=\"deadlineTime\"\n-                  type=\"time\"\n                   defaultValue={toKSTTimeOnly(product?.deadline ?? null)}\n-                  className=\"border-stone-200 bg-stone-50 focus-visible:ring-stone-400\"\n+                  placeholder=\"시간 선택 (선택)\"\n+                  inputClassName=\"h-10\"\n                 />\n               </div>\n             </div>\n             <p className=\"text-xs text-stone-400\">시간을 비우면 해당일 23:59 마감입니다.</p>\n"
                 }
             ],
             "date": 1770978593446,

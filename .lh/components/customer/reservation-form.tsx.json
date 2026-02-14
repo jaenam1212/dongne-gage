@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 6,
+            "activePatchIndex": 7,
             "patches": [
                 {
                     "date": 1770982677431,
@@ -32,6 +32,10 @@
                 {
                     "date": 1770985534850,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -11,8 +11,9 @@\n import { formatKoreanWon } from '@/lib/utils'\n import toast, { Toaster } from 'react-hot-toast'\n import { saveOrderToMyOrders } from '@/lib/my-orders-storage'\n import { getTodayKST } from '@/lib/datetime-kst'\n+import { DatePicker } from '@/components/ui/date-picker'\n \n interface Product {\n   id: string\n   title: string\n"
+                },
+                {
+                    "date": 1770985775088,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -332,14 +332,14 @@\n           <div className=\"space-y-2\">\n             <Label htmlFor=\"pickup_date\" className=\"text-stone-700\">\n               픽업 희망일\n             </Label>\n-            <Input\n-              id=\"pickup_date\"\n+            <DatePicker\n               name=\"pickup_date\"\n-              type=\"date\"\n               min={getTodayKST()}\n-              className=\"h-11 border-stone-200 bg-stone-50 focus-visible:ring-stone-400\"\n+              placeholder=\"날짜 선택\"\n+              className=\"w-full\"\n+              inputClassName=\"h-11\"\n             />\n           </div>\n \n           <div className=\"space-y-2\">\n"
                 }
             ],
             "date": 1770982677431,

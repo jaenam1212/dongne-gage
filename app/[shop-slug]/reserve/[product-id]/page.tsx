@@ -32,7 +32,18 @@ async function getProductWithShop(slug: string, productId: string) {
 
   if (!product) return null
 
-  return { shop, product }
+  const { data: reservedQuantity } = await supabase.rpc('get_product_reserved_quantity', {
+    p_product_id: product.id,
+  })
+
+  return {
+    shop,
+    product: {
+      ...product,
+      reserved_count:
+        typeof reservedQuantity === 'number' ? reservedQuantity : product.reserved_count,
+    },
+  }
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

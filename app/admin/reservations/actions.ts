@@ -21,6 +21,16 @@ const STATUS_MESSAGES = {
   completed: '예약이 완료되었습니다',
 }
 
+function mapTransitionError(message?: string): string {
+  if (!message) return '상태 변경에 실패했습니다'
+  if (message.includes('FORBIDDEN')) return '권한이 없습니다'
+  if (message.includes('RESERVATION_NOT_FOUND')) return '예약을 찾을 수 없습니다'
+  if (message.includes('INVALID_TRANSITION')) return '허용되지 않는 상태 변경입니다'
+  if (message.includes('STOCK_EXCEEDED')) return '재고가 부족하여 상태를 변경할 수 없습니다'
+  if (message.includes('PER_CUSTOMER_LIMIT')) return '1인당 구매 제한으로 상태를 변경할 수 없습니다'
+  return '상태 변경에 실패했습니다'
+}
+
 export async function updateReservationStatus(
   reservationId: string,
   newStatus: 'confirmed' | 'cancelled' | 'completed'
@@ -44,12 +54,13 @@ export async function updateReservationStatus(
     throw new Error('권한이 없습니다')
   }
 
-  const { error } = await supabase
-    .from('reservations')
-    .update({ status: newStatus })
-    .eq('id', reservationId)
+  const { error } = await supabase.rpc('transition_reservation_status', {
+    p_reservation_id: reservationId,
+    p_next_status: newStatus,
+    p_actor: user.id,
+  })
 
-  if (error) throw new Error('상태 변경에 실패했습니다')
+  if (error) throw new Error(mapTransitionError(error.message))
 
   try {
     const { data: subscription } = await supabase
@@ -75,9 +86,14 @@ export async function updateReservationStatus(
         })
       )
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Push notification failed:', error)
-    if (error.statusCode === 410 || error.statusCode === 404) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'statusCode' in error &&
+      (error.statusCode === 410 || error.statusCode === 404)
+    ) {
       await supabase
         .from('push_subscriptions')
         .delete()
@@ -110,22 +126,51 @@ export async function updateReservationsStatusBulk(
 
   if (!shop) throw new Error('가게를 찾을 수 없습니다')
 
-  // 상태별 허용: 취소→완료만 막고, 완료→취소(환불 등)는 허용
-  const allowedCurrentStatuses: Record<string, ('pending' | 'confirmed' | 'cancelled' | 'completed')[]> = {
-    confirmed: ['pending'],
-    cancelled: ['pending', 'confirmed', 'completed'], // 완료→취소(환불) 허용
-    completed: ['confirmed'],
-  }
-  const allowed = allowedCurrentStatuses[newStatus]
-
-  const { error } = await supabase
+  const { data: ownedReservations, error: ownedReservationsError } = await supabase
     .from('reservations')
-    .update({ status: newStatus })
+    .select('id')
     .eq('shop_id', shop.id)
     .in('id', reservationIds)
-    .in('status', allowed)
 
-  if (error) throw new Error('일괄 상태 변경에 실패했습니다')
+  if (ownedReservationsError) {
+    throw new Error('예약 조회에 실패했습니다')
+  }
+
+  const ownedIds = new Set((ownedReservations ?? []).map((row) => row.id))
+  const targets = reservationIds.filter((id) => ownedIds.has(id))
+
+  if (targets.length === 0) {
+    return { error: '처리 가능한 예약이 없습니다' }
+  }
+
+  let successCount = 0
+  const failures: string[] = []
+
+  for (const reservationId of targets) {
+    const { error } = await supabase.rpc('transition_reservation_status', {
+      p_reservation_id: reservationId,
+      p_next_status: newStatus,
+      p_actor: user.id,
+    })
+
+    if (error) {
+      failures.push(mapTransitionError(error.message))
+      continue
+    }
+    successCount++
+  }
+
+  if (successCount === 0) {
+    return { error: failures[0] ?? '일괄 상태 변경에 실패했습니다' }
+  }
+
+  if (failures.length > 0) {
+    const uniqueFailures = [...new Set(failures)]
+    revalidatePath('/admin/reservations')
+    return {
+      error: `${targets.length}건 중 ${successCount}건 처리됨. 실패 사유: ${uniqueFailures.join(', ')}`,
+    }
+  }
 
   revalidatePath('/admin/reservations')
   return { success: true }

@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
   })
 
   if (error) {
-    if (error.message?.includes('Per customer limit') || error.message?.includes('per person')) {
+    if (error.message?.includes('PER_CUSTOMER_LIMIT') || error.message?.includes('Per customer limit') || error.message?.includes('per person')) {
       const match = error.message.match(/Max (\d+)/i)
       const max = match ? match[1] : ''
       return NextResponse.json(
@@ -113,7 +113,12 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       )
     }
-    if (error.message?.includes('수량') || error.message?.includes('quantity') || error.message?.includes('sold out')) {
+    if (
+      error.message?.includes('STOCK_EXCEEDED') ||
+      error.message?.includes('수량') ||
+      error.message?.includes('quantity') ||
+      error.message?.includes('sold out')
+    ) {
       return NextResponse.json(
         { error: '재고가 부족합니다. 수량을 확인해주세요.' },
         { status: 409 }

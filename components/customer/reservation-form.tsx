@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -249,7 +250,14 @@ export function ReservationForm({
           <div className="flex items-center gap-4">
             <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-stone-100">
               {product.image_url ? (
-                <img src={product.image_url} alt={product.title} className="h-full w-full object-cover" />
+                <Image
+                  src={product.image_url}
+                  alt={product.title}
+                  width={64}
+                  height={64}
+                  sizes="64px"
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <div className="flex h-full items-center justify-center">
                   <div className="h-6 w-6 rounded bg-stone-200" />

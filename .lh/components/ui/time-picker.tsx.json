@@ -1,0 +1,18 @@
+{
+    "sourceFile": "components/ui/time-picker.tsx",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1770985774992,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1770985774992,
+            "name": "Commit-0",
+            "content": "'use client'\n\nimport * as React from 'react'\nimport TimePicker from 'react-time-picker'\nimport { Clock } from 'lucide-react'\nimport { cn } from '@/lib/utils'\nimport 'react-time-picker/dist/TimePicker.css'\nimport 'react-clock/dist/Clock.css'\n\ntype TimePickerFieldProps = {\n  name: string\n  defaultValue?: string\n  placeholder?: string\n  className?: string\n  inputClassName?: string\n}\n\nfunction formatDisplay(value: string | null): string {\n  if (!value) return ''\n  const parts = value.split(':')\n  const h = parts[0]\n  const m = parts[1] || '00'\n  return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`\n}\n\nexport function TimePickerField({\n  name,\n  defaultValue = '',\n  placeholder = '시간 선택 (선택)',\n  className,\n  inputClassName,\n}: TimePickerFieldProps) {\n  const [open, setOpen] = React.useState(false)\n  const [value, setValue] = React.useState<string | null>(defaultValue || null)\n  const containerRef = React.useRef<HTMLDivElement>(null)\n\n  React.useEffect(() => {\n    if (!open) return\n    function handleClick(e: MouseEvent) {\n      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {\n        setOpen(false)\n      }\n    }\n    document.addEventListener('mousedown', handleClick)\n    return () => document.removeEventListener('mousedown', handleClick)\n  }, [open])\n\n  const displayText = value ? formatDisplay(value) : placeholder\n\n  return (\n    <div ref={containerRef} className={cn('relative', className)}>\n      <input type=\"hidden\" name={name} value={value || ''} readOnly />\n      <button\n        type=\"button\"\n        onClick={() => setOpen((o) => !o)}\n        className={cn(\n          'flex h-9 w-full items-center gap-2 rounded-md border border-stone-200 bg-stone-50 px-3 py-1 text-left text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-stone-400 focus-visible:ring-[3px] focus-visible:ring-stone-400/30 md:text-sm',\n          !value && 'text-stone-400',\n          inputClassName\n        )}\n      >\n        <Clock className=\"h-4 w-4 shrink-0 text-stone-400\" />\n        <span className=\"truncate\">{displayText}</span>\n      </button>\n      {open && (\n        <div className=\"absolute left-0 top-full z-50 mt-1 rounded-xl border border-stone-200 bg-white p-3 shadow-lg [&_.react-time-picker]:!border-0 [&_.react-time-picker__wrapper]:!rounded-lg [&_.react-time-picker__wrapper]:!border-stone-200\">\n          <TimePicker\n            onChange={(v) => {\n              setValue(v as string | null)\n              setOpen(false)\n            }}\n            value={value}\n            format=\"HH:mm\"\n            clockIcon={null}\n            clearIcon={null}\n            locale=\"ko-KR\"\n            isOpen={true}\n            closeClock={true}\n            className=\"!border-0\"\n          />\n        </div>\n      )}\n    </div>\n  )\n}\n"
+        }
+    ]
+}
