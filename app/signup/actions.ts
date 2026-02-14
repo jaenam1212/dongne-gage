@@ -3,11 +3,56 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceRoleClient } from '@/lib/supabase/server'
 
+const RESERVED_SLUGS = new Set([
+  'admin',
+  'api',
+  'signup',
+  'my-orders',
+  'gunggu',
+  '123',
+])
+
+function validateSlug(slug: string): string | null {
+  if (!/^[a-z0-9\-]+$/.test(slug) || slug.length < 1) {
+    return '가게 URL은 영문 소문자, 숫자, 하이픈(-)만 사용할 수 있습니다.'
+  }
+  if (RESERVED_SLUGS.has(slug)) {
+    return '해당 URL은 시스템 예약어라 사용할 수 없습니다. 다른 URL을 입력해주세요.'
+  }
+  return null
+}
+
+export async function checkSlugAvailability(slugInput: string) {
+  const slug = (slugInput || '').trim().toLowerCase()
+  if (!slug) {
+    return { error: '가게 URL을 입력해주세요.' }
+  }
+
+  const slugValidationError = validateSlug(slug)
+  if (slugValidationError) {
+    return { error: slugValidationError }
+  }
+
+  const admin = createServiceRoleClient()
+  const { data: existingShop } = await admin
+    .from('shops')
+    .select('id')
+    .eq('slug', slug)
+    .maybeSingle()
+
+  if (existingShop) {
+    return { error: '이미 사용중인 URL입니다. 다른 URL을 입력해주세요.' }
+  }
+
+  return { success: '사용 가능한 URL입니다.', slug }
+}
+
 export async function signUp(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
   const shopName = (formData.get('shopName') as string).trim()
-  const slug = (formData.get('slug') as string).trim()
+  const slug = (formData.get('slug') as string).trim().toLowerCase()
+  const slugCheckedSlug = ((formData.get('slugCheckedSlug') as string) || '').trim().toLowerCase()
   const phone = (formData.get('phone') as string)?.trim() || null
 
   if (!email || !password || !shopName || !slug) {
@@ -18,9 +63,13 @@ export async function signUp(formData: FormData) {
     return { error: '비밀번호는 최소 8자 이상이어야 합니다' }
   }
 
-  // 가게 URL은 영문 소문자, 숫자, 하이픈만 허용 (한글·특수문자 불가)
-  if (!/^[a-z0-9\-]+$/.test(slug) || slug.length < 1) {
-    return { error: '가게 URL은 영문 소문자, 숫자, 하이픈(-)만 사용할 수 있습니다.' }
+  const slugValidationError = validateSlug(slug)
+  if (slugValidationError) {
+    return { error: slugValidationError }
+  }
+
+  if (slugCheckedSlug !== slug) {
+    return { error: '가입 전에 가게 URL 중복확인을 완료해주세요.' }
   }
 
   const admin = createServiceRoleClient()

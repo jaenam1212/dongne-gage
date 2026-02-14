@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2, ArrowLeft } from 'lucide-react'
-import { signUp } from './actions'
+import { checkSlugAvailability, signUp } from './actions'
 import toast, { Toaster } from 'react-hot-toast'
 
 export default function SignupPage() {
@@ -15,6 +15,8 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false)
   const [shopName, setShopName] = useState('')
   const [suggestedSlug, setSuggestedSlug] = useState('')
+  const [slugCheckedSlug, setSlugCheckedSlug] = useState('')
+  const [checkingSlug, setCheckingSlug] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // 가게 URL은 영문 소문자, 숫자, 하이픈만 허용 (한글 불가)
@@ -33,10 +35,31 @@ export default function SignupPage() {
     const name = e.target.value
     setShopName(name)
     if (name.trim()) {
-      setSuggestedSlug(generateSlug(name))
+      const next = generateSlug(name)
+      setSuggestedSlug(next)
+      setSlugCheckedSlug('')
     } else {
       setSuggestedSlug('')
+      setSlugCheckedSlug('')
     }
+  }
+
+  async function handleCheckSlug() {
+    const slug = suggestedSlug.trim().toLowerCase()
+    if (!slug) {
+      toast.error('가게 URL을 입력해주세요.')
+      return
+    }
+    setCheckingSlug(true)
+    const result = await checkSlugAvailability(slug)
+    if (result?.error) {
+      setSlugCheckedSlug('')
+      toast.error(result.error)
+    } else {
+      setSlugCheckedSlug(result.slug ?? slug)
+      toast.success(result?.success ?? '사용 가능한 URL입니다.')
+    }
+    setCheckingSlug(false)
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -45,6 +68,13 @@ export default function SignupPage() {
     setError(null)
 
     const formData = new FormData(e.currentTarget)
+    if (slugCheckedSlug !== suggestedSlug.trim().toLowerCase()) {
+      setError('가입 전에 가게 URL 중복확인을 완료해주세요.')
+      toast.error('가게 URL 중복확인을 먼저 해주세요.')
+      setLoading(false)
+      return
+    }
+    formData.set('slugCheckedSlug', slugCheckedSlug)
     const result = await signUp(formData)
 
     if (result?.error) {
@@ -132,13 +162,29 @@ export default function SignupPage() {
                   onChange={(e) => {
                     const v = e.target.value.toLowerCase().replace(/[^a-z0-9\-]/g, '')
                     setSuggestedSlug(v)
+                    setSlugCheckedSlug('')
                   }}
                   placeholder="my-shop"
                   className="border-stone-200 bg-stone-50 focus-visible:ring-stone-400"
                 />
+                <div className="mt-2 flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCheckSlug}
+                    disabled={checkingSlug || !suggestedSlug.trim()}
+                    className="h-9"
+                  >
+                    {checkingSlug ? '확인 중...' : '중복검사'}
+                  </Button>
+                  {slugCheckedSlug === suggestedSlug.trim().toLowerCase() && (
+                    <p className="text-xs text-emerald-600 font-medium">중복확인 완료</p>
+                  )}
+                </div>
                 <p className="text-xs text-stone-400">
                   영문 소문자, 숫자, 하이픈(-)만 사용 가능 · dongnegage.com/{suggestedSlug || 'my-shop'}
                 </p>
+                <input type="hidden" name="slugCheckedSlug" value={slugCheckedSlug} />
               </div>
 
               <div className="space-y-2">
@@ -154,7 +200,7 @@ export default function SignupPage() {
 
               <Button
                 type="submit"
-                disabled={loading}
+                disabled={loading || slugCheckedSlug !== suggestedSlug.trim().toLowerCase()}
                 className="w-full h-11 bg-stone-900 text-white hover:bg-stone-800"
               >
                 {loading ? (

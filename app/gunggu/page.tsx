@@ -58,9 +58,6 @@ export default function GroupBuyLandingPage() {
             <Button asChild size="lg" className="h-12 bg-stone-900 px-8 text-base font-semibold text-white hover:bg-stone-800">
               <Link href="/signup">무료로 시작하기</Link>
             </Button>
-            <Button asChild size="lg" variant="outline" className="h-12 px-8 text-base font-semibold">
-              <Link href="/">메인 페이지 보기</Link>
-            </Button>
           </div>
         </div>
       </section>
