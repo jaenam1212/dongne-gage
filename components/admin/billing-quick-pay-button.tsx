@@ -18,7 +18,12 @@ type CheckoutPayload = {
   error?: string
 }
 
-export function BillingQuickPayButton() {
+interface BillingQuickPayButtonProps {
+  label?: string
+  disabled?: boolean
+}
+
+export function BillingQuickPayButton({ label = '미리 결제 등록하기', disabled = false }: BillingQuickPayButtonProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -64,10 +69,10 @@ export function BillingQuickPayButton() {
       <Button
         type="button"
         onClick={handlePay}
-        disabled={loading}
+        disabled={loading || disabled}
         className="bg-stone-900 text-white hover:bg-stone-800"
       >
-        {loading ? '결제 준비 중...' : '지금 결제하기'}
+        {loading ? '결제 준비 중...' : label}
       </Button>
       {error && (
         <p className="text-xs text-red-600">{error}</p>

@@ -134,11 +134,21 @@ export function AdminShell({ shopName, isSystemOwner = false, billing, children 
                 무료 사용 기한이 {billing.reminderDay}일 남았습니다
               </p>
               <p className="mt-1 text-xs text-amber-700">
-                체험 종료 전 결제 정보를 등록해두면 서비스가 중단되지 않습니다.
+                미리 결제해도 무료체험은 종료일까지 유지되며, 종료 후 자동으로 유료가 시작됩니다.
               </p>
               <Link href="/admin/billing" className="mt-2 inline-block text-xs font-semibold text-amber-800 underline underline-offset-2">
                 결제 설정하기
               </Link>
+            </div>
+          )}
+          {billing?.paidScheduledAfterTrial && (
+            <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+              <p className="text-sm font-semibold text-emerald-700">
+                결제가 완료되었습니다. 무료체험 종료 후 유료가 시작됩니다.
+              </p>
+              <p className="mt-1 text-xs text-emerald-700">
+                무료체험 기간은 그대로 유지되며 종료일까지 계속 이용할 수 있습니다.
+              </p>
             </div>
           )}
           {children}

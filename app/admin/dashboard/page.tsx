@@ -83,6 +83,21 @@ export default async function DashboardPage() {
     completed: 'bg-blue-100 text-blue-700',
   }
 
+  const billingQuickPayLabel = billing?.isSystemOwner
+    ? '시스템 오너 과금 면제'
+    : billing?.readOnlyMode
+    ? '결제 하기'
+    : billing?.billingStatus === 'active' && billing.daysUntilTrialEnd < 0
+    ? '정기결제 이용중'
+    : billing?.paidScheduledAfterTrial
+    ? '결제 등록 완료'
+    : '미리 결제 등록하기'
+
+  const billingQuickPayDisabled =
+    !!billing?.isSystemOwner ||
+    (billing?.billingStatus === 'active' && billing.daysUntilTrialEnd < 0) ||
+    !!billing?.paidScheduledAfterTrial
+
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-bold text-stone-900">대시보드</h1>
@@ -101,7 +116,9 @@ export default async function DashboardPage() {
             {billing && (
               <p className="mt-1 text-sm text-stone-500">
                 {billing.daysUntilTrialEnd >= 0
-                  ? `무료체험 종료까지 ${billing.daysUntilTrialEnd}일`
+                  ? billing.paidScheduledAfterTrial
+                    ? `무료체험 종료까지 ${billing.daysUntilTrialEnd}일 (선결제 완료)`
+                    : `무료체험 종료까지 ${billing.daysUntilTrialEnd}일`
                   : '무료체험이 종료되었습니다'}
                 {billing.nextBillingAt
                   ? ` · 다음 결제 ${new Date(billing.nextBillingAt).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })}`
@@ -110,7 +127,7 @@ export default async function DashboardPage() {
             )}
           </div>
           <div className="shrink-0">
-            <BillingQuickPayButton />
+            <BillingQuickPayButton label={billingQuickPayLabel} disabled={billingQuickPayDisabled} />
           </div>
         </div>
         <div className="mt-3">

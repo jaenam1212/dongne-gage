@@ -15,16 +15,12 @@ export type ShopBillingSnapshot = {
   daysUntilTrialEnd: number
   shouldShowReminder: boolean
   reminderDay: number | null
+  paidScheduledAfterTrial: boolean
 }
 
 function diffDaysCeil(from: Date, to: Date) {
   const diffMs = to.getTime() - from.getTime()
   return Math.ceil(diffMs / (1000 * 60 * 60 * 24))
-}
-
-function asBillingStatus(value: string | null | undefined): ShopBillingSnapshot['billingStatus'] {
-  if (value === 'active' || value === 'past_due' || value === 'cancelled') return value
-  return 'trialing'
 }
 
 export async function getShopBillingSnapshot(
@@ -39,21 +35,53 @@ export async function getShopBillingSnapshot(
 
   if (!shop) return null
 
+  const { data: subscription } = await supabase
+    .from('shop_subscriptions')
+    .select('status, current_period_start, current_period_end')
+    .eq('shop_id', shop.id)
+    .maybeSingle()
+
   const now = new Date()
   const trialEnd = new Date(shop.trial_ends_at)
   const daysUntilTrialEnd = diffDaysCeil(now, trialEnd)
   const isSystemOwner = !!shop.is_system_owner
-  const computedReadOnly = isSystemOwner
-    ? false
-    : daysUntilTrialEnd < 0 && asBillingStatus(shop.billing_status) !== 'active'
-  const effectiveBillingStatus = isSystemOwner ? 'active' : asBillingStatus(shop.billing_status)
+  const subStatus = typeof subscription?.status === 'string' ? subscription.status : null
+  const subStart = subscription?.current_period_start ? new Date(subscription.current_period_start) : null
+  const subEnd = subscription?.current_period_end ? new Date(subscription.current_period_end) : null
+  const hasValidSubscription = Boolean(
+    subStatus === 'active' && ((subEnd && subEnd >= now) || (subStart && subStart > now))
+  )
+  const paidScheduledAfterTrial =
+    !isSystemOwner &&
+    daysUntilTrialEnd >= 0 &&
+    hasValidSubscription &&
+    !!subStart &&
+    subStart > now
+
+  let effectiveBillingStatus: ShopBillingSnapshot['billingStatus']
+  let computedReadOnly: boolean
+
+  if (isSystemOwner) {
+    effectiveBillingStatus = 'active'
+    computedReadOnly = false
+  } else if (daysUntilTrialEnd >= 0) {
+    // 무료기간에는 결제 여부와 무관하게 무료 상태 유지
+    effectiveBillingStatus = 'trialing'
+    computedReadOnly = false
+  } else if (hasValidSubscription) {
+    effectiveBillingStatus = 'active'
+    computedReadOnly = false
+  } else {
+    effectiveBillingStatus = 'past_due'
+    computedReadOnly = true
+  }
 
   if (computedReadOnly !== !!shop.read_only_mode || (!isSystemOwner && effectiveBillingStatus !== shop.billing_status)) {
     await supabase
       .from('shops')
       .update({
         read_only_mode: computedReadOnly,
-        billing_status: isSystemOwner ? shop.billing_status : computedReadOnly ? 'past_due' : effectiveBillingStatus,
+        billing_status: isSystemOwner ? shop.billing_status : effectiveBillingStatus,
         billing_updated_at: new Date().toISOString(),
       })
       .eq('id', shop.id)
@@ -75,6 +103,7 @@ export async function getShopBillingSnapshot(
     daysUntilTrialEnd,
     shouldShowReminder: !isSystemOwner && daysUntilTrialEnd >= 0 && reminderDay !== null,
     reminderDay: isSystemOwner ? null : reminderDay,
+    paidScheduledAfterTrial,
   }
 }
 

@@ -57,8 +57,17 @@ export async function GET(request: NextRequest) {
 
     if (lastEvent?.shop_id) {
       const now = new Date()
-      const nextBilling = new Date(now)
-      nextBilling.setMonth(nextBilling.getMonth() + 1)
+      const { data: shop } = await admin
+        .from('shops')
+        .select('id, trial_ends_at')
+        .eq('id', lastEvent.shop_id)
+        .single()
+
+      const trialEnd = shop?.trial_ends_at ? new Date(shop.trial_ends_at) : now
+      const isTrialActive = now <= trialEnd
+      const periodStart = isTrialActive ? trialEnd : now
+      const periodEnd = new Date(periodStart)
+      periodEnd.setMonth(periodEnd.getMonth() + 1)
 
       await admin
         .from('shop_subscriptions')
@@ -70,10 +79,10 @@ export async function GET(request: NextRequest) {
             status: 'active',
             billing_key: paymentKey,
             customer_key: confirmData.customerKey ?? null,
-            current_period_start: now.toISOString(),
-            current_period_end: nextBilling.toISOString(),
+            current_period_start: periodStart.toISOString(),
+            current_period_end: periodEnd.toISOString(),
             last_payment_at: now.toISOString(),
-            next_billing_at: nextBilling.toISOString(),
+            next_billing_at: periodEnd.toISOString(),
             metadata: confirmData,
             updated_at: now.toISOString(),
           },
@@ -83,10 +92,10 @@ export async function GET(request: NextRequest) {
       await admin
         .from('shops')
         .update({
-          billing_status: 'active',
+          billing_status: isTrialActive ? 'trialing' : 'active',
           read_only_mode: false,
           plan_code: 'starter_monthly',
-          next_billing_at: nextBilling.toISOString(),
+          next_billing_at: periodEnd.toISOString(),
           billing_updated_at: now.toISOString(),
         })
         .eq('id', lastEvent.shop_id)

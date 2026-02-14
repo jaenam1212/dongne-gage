@@ -39,7 +39,7 @@ export default function BillingPage() {
   }, [])
 
   useEffect(() => {
-    if (queryStatus === 'success') setStatusMessage('결제가 완료되었습니다.')
+    if (queryStatus === 'success') setStatusMessage('결제가 완료되었습니다. 무료체험 종료 후 유료 구독이 자동으로 시작됩니다.')
     if (queryStatus === 'failed') setStatusMessage('결제가 실패했습니다. 다시 시도해주세요.')
   }, [queryStatus])
 
@@ -75,7 +75,7 @@ export default function BillingPage() {
       <div>
         <h1 className="text-xl font-bold text-stone-900">결제 관리</h1>
         <p className="mt-1 text-sm text-stone-500">
-          무료체험 종료 후에는 결제가 필요합니다. 결제 완료 시 즉시 편집 기능이 복구됩니다.
+          무료체험 중에도 미리 결제할 수 있습니다. 무료체험은 종료일까지 유지되며, 종료 후 유료 구독이 시작됩니다.
         </p>
       </div>
 
@@ -92,14 +92,17 @@ export default function BillingPage() {
       )}
 
       <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm space-y-3">
-        <p className="text-sm text-stone-700">월 정기결제 시작 (토스)</p>
+        <p className="text-sm text-stone-700">미리 결제 등록 (토스)</p>
+        <div className="rounded-lg bg-stone-50 px-3 py-2 text-xs text-stone-600">
+          결제 시점에 바로 과금 상태가 바뀌지 않습니다. 무료체험 종료일까지는 계속 무료로 이용할 수 있습니다.
+        </div>
         <Button
           type="button"
           onClick={handlePay}
           disabled={loading}
           className="bg-stone-900 text-white hover:bg-stone-800"
         >
-          {loading ? '결제 준비 중...' : '월 정기결제 시작하기'}
+          {loading ? '결제 준비 중...' : '미리 결제 등록하기'}
         </Button>
       </div>
     </div>
