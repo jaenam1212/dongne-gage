@@ -7,6 +7,95 @@ import { sendPushToShop } from '@/lib/push'
 import { fromKSTToISOUTC } from '@/lib/datetime-kst'
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
+type ProductOptionGroup = { name: string; values: string[]; required: boolean }
+
+function parseProductOptionsJson(raw: string): { groups: ProductOptionGroup[]; error?: string } {
+  const text = raw.trim()
+  if (!text) return { groups: [] }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    return { groups: [], error: '옵션 데이터 형식이 올바르지 않습니다' }
+  }
+
+  if (!Array.isArray(parsed)) {
+    return { groups: [], error: '옵션 데이터 형식이 올바르지 않습니다' }
+  }
+
+  const groups: ProductOptionGroup[] = []
+  for (const item of parsed) {
+    if (!item || typeof item !== 'object') {
+      return { groups: [], error: '옵션 데이터 형식이 올바르지 않습니다' }
+    }
+    const option = item as { name?: unknown; values?: unknown; required?: unknown }
+    const name = typeof option.name === 'string' ? option.name.trim() : ''
+    const values = Array.isArray(option.values)
+      ? option.values
+          .filter((v): v is string => typeof v === 'string')
+          .map((v) => v.trim())
+          .filter(Boolean)
+      : []
+    const required = option.required !== false
+
+    if (!name || values.length === 0) {
+      return { groups: [], error: '옵션명과 값을 입력해주세요' }
+    }
+    groups.push({
+      name,
+      values: Array.from(new Set(values)),
+      required,
+    })
+  }
+
+  return { groups }
+}
+
+function parseProductOptionsRaw(raw: string): { groups: ProductOptionGroup[]; error?: string } {
+  const text = raw.trim()
+  if (!text) return { groups: [] }
+
+  const lines = text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  const groups: ProductOptionGroup[] = []
+
+  for (const line of lines) {
+    const [left, right] = line.split(':')
+    if (!left || !right) {
+      return {
+        groups: [],
+        error: '옵션 형식이 올바르지 않습니다. 예: 사이즈: S, M, L',
+      }
+    }
+
+    const optionNameRaw = left.trim()
+    const required = !optionNameRaw.endsWith('(선택)')
+    const name = required
+      ? optionNameRaw
+      : optionNameRaw.replace(/\(선택\)\s*$/, '').trim()
+
+    const values = right
+      .split(',')
+      .map((v) => v.trim())
+      .filter(Boolean)
+
+    if (!name || values.length < 1) {
+      return {
+        groups: [],
+        error: '옵션명과 값을 입력해주세요. 예: 컬러(선택): 블랙, 화이트',
+      }
+    }
+
+    const dedupedValues = Array.from(new Set(values))
+    groups.push({ name, values: dedupedValues, required })
+  }
+
+  return { groups }
+}
 
 function getImageFilesFromForm(formData: FormData): File[] {
   const files = formData
@@ -174,6 +263,13 @@ export async function createProduct(formData: FormData) {
   if (inventoryLinkInput.error) {
     return { error: inventoryLinkInput.error }
   }
+  const optionsJsonRaw = (formData.get('productOptionsJson') as string) || ''
+  const optionsParsed = optionsJsonRaw.trim()
+    ? parseProductOptionsJson(optionsJsonRaw)
+    : parseProductOptionsRaw((formData.get('productOptionsRaw') as string) || '')
+  if (optionsParsed.error) {
+    return { error: optionsParsed.error }
+  }
 
   const { data: insertedProduct, error } = await supabase
     .from('products')
@@ -186,6 +282,7 @@ export async function createProduct(formData: FormData) {
       max_quantity,
       max_quantity_per_customer,
       deadline,
+      option_groups: optionsParsed.groups.length > 0 ? optionsParsed.groups : null,
       is_active: true,
     })
     .select('id')
@@ -320,6 +417,13 @@ export async function updateProduct(productId: string, formData: FormData) {
   if (inventoryLinkInput.error) {
     return { error: inventoryLinkInput.error }
   }
+  const optionsJsonRaw = (formData.get('productOptionsJson') as string) || ''
+  const optionsParsed = optionsJsonRaw.trim()
+    ? parseProductOptionsJson(optionsJsonRaw)
+    : parseProductOptionsRaw((formData.get('productOptionsRaw') as string) || '')
+  if (optionsParsed.error) {
+    return { error: optionsParsed.error }
+  }
 
   const { error } = await supabase
     .from('products')
@@ -331,6 +435,7 @@ export async function updateProduct(productId: string, formData: FormData) {
       max_quantity: newMaxQuantity,
       max_quantity_per_customer,
       deadline,
+      option_groups: optionsParsed.groups.length > 0 ? optionsParsed.groups : null,
     })
     .eq('id', productId)
 

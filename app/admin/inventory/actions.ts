@@ -12,6 +12,8 @@ type RegisterResult = {
   failedRows?: number
 }
 
+type ProductOptionGroup = { name: string; values: string[]; required: boolean }
+
 type NormalizedInventoryRow = {
   rowNumber: number
   sku: string
@@ -20,6 +22,7 @@ type NormalizedInventoryRow = {
   currentQuantity: number
   minimumQuantity: number
   isActive: boolean
+  optionGroups: ProductOptionGroup[]
   rawData: Record<string, unknown>
 }
 
@@ -48,6 +51,43 @@ function parseBool(value: unknown, fallback = true): boolean {
   if (['true', '1', 'y', 'yes', 'on', '사용', '활성', 'o'].includes(raw)) return true
   if (['false', '0', 'n', 'no', 'off', '미사용', '비활성', 'x'].includes(raw)) return false
   return fallback
+}
+
+function parseOptionGroupsRaw(raw: string): ProductOptionGroup[] {
+  const text = raw.trim()
+  if (!text) return []
+
+  const normalized = text
+    .replace(/\r\n/g, '\n')
+    .replace(/\|/g, '\n')
+    .replace(/;/g, '\n')
+  const lines = normalized
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  const groups: ProductOptionGroup[] = []
+  for (const line of lines) {
+    const [left, right] = line.split(':')
+    if (!left || !right) continue
+
+    const nameRaw = left.trim()
+    const required = !nameRaw.endsWith('(선택)')
+    const name = required ? nameRaw : nameRaw.replace(/\(선택\)\s*$/, '').trim()
+    const values = right
+      .split(',')
+      .map((v) => v.trim())
+      .filter(Boolean)
+
+    if (!name || values.length === 0) continue
+    groups.push({
+      name,
+      values: Array.from(new Set(values)),
+      required,
+    })
+  }
+
+  return groups
 }
 
 function pickByAliases(
@@ -139,6 +179,19 @@ function normalizeRow(
     true
   )
 
+  const optionRaw = normalizeCell(
+    pickByAliases(normalizedEntries, [
+      'options',
+      'option',
+      'optiongroups',
+      'optiongroup',
+      '옵션',
+      '옵션값',
+      '옵션그룹',
+    ]) ?? valuesInOrder[6]
+  )
+  const optionGroups = parseOptionGroupsRaw(optionRaw)
+
   return {
     rowNumber,
     sku,
@@ -147,6 +200,7 @@ function normalizeRow(
     currentQuantity,
     minimumQuantity,
     isActive,
+    optionGroups,
     rawData: row,
   }
 }
@@ -183,6 +237,7 @@ export async function registerInventory(formData: FormData): Promise<RegisterRes
     const currentQuantity = parseNonNegativeInt(formData.get('current_quantity'), 0)
     const minimumQuantity = parseNonNegativeInt(formData.get('minimum_quantity'), 0)
     const isActive = parseBool(formData.get('is_active'), true)
+    const optionGroups = parseOptionGroupsRaw(normalizeCell(formData.get('option_groups_raw')))
 
     if (!sku) return { error: 'SKU를 입력해주세요' }
     if (!name) return { error: '품목명을 입력해주세요' }
@@ -198,6 +253,7 @@ export async function registerInventory(formData: FormData): Promise<RegisterRes
           current_quantity: currentQuantity,
           minimum_quantity: minimumQuantity,
           is_active: isActive,
+          option_groups: optionGroups.length > 0 ? optionGroups : null,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'shop_id,sku' }
@@ -290,6 +346,7 @@ export async function registerInventory(formData: FormData): Promise<RegisterRes
           current_quantity: row.currentQuantity,
           minimum_quantity: row.minimumQuantity,
           is_active: row.isActive,
+          option_groups: row.optionGroups.length > 0 ? row.optionGroups : null,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'shop_id,sku' }

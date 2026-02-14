@@ -1,14 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import useEmblaCarousel from 'embla-carousel-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Loader2, CheckCircle2, Copy } from 'lucide-react'
+import { Loader2, CheckCircle2, Copy, X } from 'lucide-react'
 import { formatKoreanWon } from '@/lib/utils'
 import toast, { Toaster } from 'react-hot-toast'
 import { saveOrderToMyOrders } from '@/lib/my-orders-storage'
@@ -24,6 +25,7 @@ interface Product {
   max_quantity_per_customer?: number | null
   reserved_count: number
   deadline: string | null
+  option_groups?: { name: string; values: string[]; required?: boolean }[] | null
 }
 
 interface ReservationResult {
@@ -63,6 +65,8 @@ export function ReservationForm({
   const [result, setResult] = useState<ReservationResult | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [viewerOpen, setViewerOpen] = useState(false)
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
 
   const images =
     productImages.length > 0
@@ -70,6 +74,68 @@ export function ReservationForm({
       : product.image_url
       ? [product.image_url]
       : []
+  const optionGroups = product.option_groups ?? []
+  const [mainEmblaRef, mainEmblaApi] = useEmblaCarousel({
+    loop: false,
+    align: 'start',
+    duration: 60,
+  })
+  const [viewerEmblaRef, viewerEmblaApi] = useEmblaCarousel({
+    loop: false,
+    align: 'start',
+    duration: 60,
+  })
+
+  const onMainSelect = useCallback(() => {
+    if (!mainEmblaApi) return
+    setCurrentImageIndex(mainEmblaApi.selectedScrollSnap())
+  }, [mainEmblaApi])
+
+  const onViewerSelect = useCallback(() => {
+    if (!viewerEmblaApi) return
+    setCurrentImageIndex(viewerEmblaApi.selectedScrollSnap())
+  }, [viewerEmblaApi])
+
+  useEffect(() => {
+    if (!mainEmblaApi) return
+    onMainSelect()
+    mainEmblaApi.on('select', onMainSelect)
+    mainEmblaApi.on('reInit', onMainSelect)
+    return () => {
+      mainEmblaApi.off('select', onMainSelect)
+      mainEmblaApi.off('reInit', onMainSelect)
+    }
+  }, [mainEmblaApi, onMainSelect])
+
+  useEffect(() => {
+    if (!viewerEmblaApi) return
+    onViewerSelect()
+    viewerEmblaApi.on('select', onViewerSelect)
+    viewerEmblaApi.on('reInit', onViewerSelect)
+    return () => {
+      viewerEmblaApi.off('select', onViewerSelect)
+      viewerEmblaApi.off('reInit', onViewerSelect)
+    }
+  }, [viewerEmblaApi, onViewerSelect])
+
+  useEffect(() => {
+    if (!viewerOpen || !viewerEmblaApi) return
+    viewerEmblaApi.scrollTo(currentImageIndex, true)
+  }, [viewerOpen, viewerEmblaApi, currentImageIndex])
+
+  useEffect(() => {
+    if (viewerOpen || !mainEmblaApi) return
+    mainEmblaApi.scrollTo(currentImageIndex, true)
+  }, [viewerOpen, mainEmblaApi, currentImageIndex])
+
+  useEffect(() => {
+    if (!viewerOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [viewerOpen])
 
   const remaining = getRemainingQuantity(product)
   const perCustomer = product.max_quantity_per_customer ?? 99
@@ -103,6 +169,13 @@ export function ReservationForm({
           : `최대 ${maxQty}개까지 예약할 수 있습니다`
     }
     if (!privacyAgreed) newErrors.privacy = '개인정보 동의가 필요합니다'
+    for (const group of optionGroups) {
+      const value = selectedOptions[group.name]
+      const isRequired = group.required !== false
+      if (isRequired && !value) {
+        newErrors[`option_${group.name}`] = `${group.name} 옵션을 선택해주세요`
+      }
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
@@ -124,6 +197,7 @@ export function ReservationForm({
           pickup_date: pickupDate || null,
           memo: memo?.trim() || null,
           privacy_agreed: privacyAgreed,
+          selected_options: selectedOptions,
         }),
       })
 
@@ -258,31 +332,27 @@ export function ReservationForm({
       <form onSubmit={handleSubmit} className="space-y-5">
         {images.length > 0 && (
           <div className="rounded-2xl border border-stone-200 bg-white p-3 shadow-sm">
-            <div
-              className="flex snap-x snap-mandatory overflow-x-auto rounded-xl bg-stone-100"
-              onScroll={(e) => {
-                const el = e.currentTarget
-                const width = el.clientWidth || 1
-                const index = Math.round(el.scrollLeft / width)
-                if (index !== currentImageIndex) {
-                  setCurrentImageIndex(Math.max(0, Math.min(images.length - 1, index)))
-                }
-              }}
-            >
-              {images.map((url, idx) => (
-                <div
-                  key={`${url}-${idx}`}
-                  className="relative h-56 w-full shrink-0 snap-center"
-                >
-                  <Image
-                    src={url}
-                    alt={`${product.title} 이미지 ${idx + 1}`}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 448px"
-                    className="object-cover"
-                  />
-                </div>
-              ))}
+            <div className="overflow-hidden rounded-xl bg-stone-100" ref={mainEmblaRef}>
+              <div className="flex">
+                {images.map((url, idx) => (
+                  <div key={`${url}-${idx}`} className="relative min-w-0 flex-[0_0_100%]">
+                    <button
+                      type="button"
+                      onClick={() => setViewerOpen(true)}
+                      className="relative block aspect-4/3 w-full md:aspect-16/10"
+                      aria-label="이미지 크게 보기"
+                    >
+                      <Image
+                        src={url}
+                        alt={`${product.title} 이미지 ${idx + 1}`}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 448px"
+                        className="object-contain"
+                      />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {images.length > 1 && (
@@ -295,6 +365,46 @@ export function ReservationForm({
                     }`}
                   />
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+        {viewerOpen && images.length > 0 && (
+          <div
+            className="fixed inset-0 z-50 bg-black/90 px-4 py-6"
+            role="dialog"
+            aria-modal="true"
+          >
+            <button
+              type="button"
+              onClick={() => setViewerOpen(false)}
+              className="absolute right-4 top-4 rounded-full bg-white/15 p-2 text-white"
+              aria-label="이미지 닫기"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <div className="mx-auto flex h-full w-full max-w-md items-center">
+              <div className="w-full overflow-hidden" ref={viewerEmblaRef}>
+                <div className="flex">
+                  {images.map((url, idx) => (
+                    <div key={`${url}-${idx}`} className="relative min-w-0 flex-[0_0_100%]">
+                      <div className="relative aspect-3/4 w-full sm:aspect-4/5">
+                        <Image
+                          src={url}
+                          alt={`${product.title} 확대 이미지 ${idx + 1}`}
+                          fill
+                          sizes="100vw"
+                          className="object-contain"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            {images.length > 1 && (
+              <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-black/35 px-3 py-1.5 text-xs text-white">
+                {currentImageIndex + 1} / {images.length}
               </div>
             )}
           </div>
@@ -390,6 +500,39 @@ export function ReservationForm({
               <p className="text-xs text-red-500">{errors.quantity}</p>
             )}
           </div>
+
+          {optionGroups.map((group) => {
+            const key = `option_${group.name}`
+            const isRequired = group.required !== false
+            return (
+              <div className="space-y-2" key={group.name}>
+                <Label htmlFor={key} className="text-stone-700">
+                  {group.name}
+                  {isRequired ? (
+                    <span className="text-red-500"> *</span>
+                  ) : (
+                    <span className="text-stone-400 font-normal"> (선택)</span>
+                  )}
+                </Label>
+                <select
+                  id={key}
+                  value={selectedOptions[group.name] ?? ''}
+                  onChange={(e) =>
+                    setSelectedOptions((prev) => ({ ...prev, [group.name]: e.target.value }))
+                  }
+                  className="h-11 w-full rounded-md border border-stone-200 bg-stone-50 px-3 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-400"
+                >
+                  <option value="">{isRequired ? '옵션 선택' : '선택 안 함'}</option>
+                  {group.values.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+                {errors[key] && <p className="text-xs text-red-500">{errors[key]}</p>}
+              </div>
+            )
+          })}
 
           <div className="space-y-2">
             <Label htmlFor="pickup_date" className="text-stone-700">

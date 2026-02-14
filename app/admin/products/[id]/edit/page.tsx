@@ -26,7 +26,7 @@ export default async function EditProductPage({
 
   const { data: inventoryItems } = await supabase
     .from('inventory_items')
-    .select('id, sku, name, current_quantity, is_active')
+    .select('id, sku, name, current_quantity, is_active, option_groups')
     .eq('shop_id', product.shop_id)
     .order('name', { ascending: true })
 
@@ -67,6 +67,7 @@ export default async function EditProductPage({
         max_quantity_per_customer: product.max_quantity_per_customer ?? undefined,
         reserved_count: product.reserved_count,
         deadline: product.deadline,
+        option_groups: product.option_groups ?? null,
         inventory_link_enabled: !!activeLink,
         inventory_item_id: activeLink?.inventory_item_id ?? null,
         inventory_consume_per_sale: activeLink?.consume_per_sale ?? 1,

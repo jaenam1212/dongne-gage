@@ -19,6 +19,7 @@ interface InventoryItem {
   is_active: boolean
   updated_at: string
   linked_count: number
+  option_groups?: { name: string; values: string[]; required?: boolean }[] | null
 }
 
 export function InventoryClient({
@@ -99,6 +100,20 @@ export function InventoryClient({
           </div>
 
           <div className="space-y-1.5">
+            <Label htmlFor="option_groups_raw">옵션 템플릿 (선택)</Label>
+            <textarea
+              id="option_groups_raw"
+              name="option_groups_raw"
+              rows={3}
+              placeholder={'한우: 1kg, 2kg\n사이즈: S, M, L\n컬러(선택): 노랑, 파랑'}
+              className="w-full rounded-md border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-400"
+            />
+            <p className="text-xs text-stone-500">
+              상품 등록 시 재고 항목 선택하면 이 옵션 템플릿을 자동으로 불러옵니다.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
             <Label htmlFor="excelFile">엑셀/CSV 파일 (대량 등록)</Label>
             <Input id="excelFile" name="excelFile" type="file" accept=".xlsx,.xls,.csv" />
             <p className="text-xs text-stone-500">
@@ -129,6 +144,7 @@ export function InventoryClient({
                     <th className="px-3 py-2">현재 수량</th>
                     <th className="px-3 py-2">최소 수량</th>
                     <th className="px-3 py-2">연동 상품</th>
+                    <th className="px-3 py-2">옵션 템플릿</th>
                     <th className="px-3 py-2">상태</th>
                   </tr>
                 </thead>
@@ -145,6 +161,11 @@ export function InventoryClient({
                         <td className="px-3 py-2">{item.current_quantity}</td>
                         <td className="px-3 py-2">{item.minimum_quantity}</td>
                         <td className="px-3 py-2">{item.linked_count}</td>
+                        <td className="px-3 py-2 text-xs text-stone-500">
+                          {item.option_groups && item.option_groups.length > 0
+                            ? item.option_groups.map((g) => `${g.name}(${g.values.length})`).join(', ')
+                            : '-'}
+                        </td>
                         <td className="px-3 py-2">
                           {!item.is_active ? (
                             <span className="rounded-full bg-stone-100 px-2 py-1 text-xs text-stone-600">비활성</span>

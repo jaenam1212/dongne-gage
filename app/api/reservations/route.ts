@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
     pickup_date?: string | null
     memo?: string | null
     privacy_agreed?: boolean
+    selected_options?: Record<string, string>
   }
 
   try {
@@ -56,7 +57,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '잘못된 요청입니다' }, { status: 400 })
   }
 
-  const { product_id, customer_name, customer_phone, quantity, pickup_date, memo, privacy_agreed } = body
+  const {
+    product_id,
+    customer_name,
+    customer_phone,
+    quantity,
+    pickup_date,
+    memo,
+    privacy_agreed,
+    selected_options,
+  } = body
 
   if (!product_id || !customer_name?.trim() || !customer_phone || !quantity) {
     return NextResponse.json({ error: '필수 항목을 입력해주세요' }, { status: 400 })
@@ -86,12 +96,43 @@ export async function POST(request: NextRequest) {
 
     const { data: product, error: productError } = await supabase
       .from('products')
-      .select('shop_id')
+      .select('shop_id, option_groups')
       .eq('id', product_id)
       .single()
 
     if (productError || !product?.shop_id) {
       return NextResponse.json({ error: '상품을 찾을 수 없습니다' }, { status: 404 })
+    }
+
+    const optionGroups =
+      Array.isArray(product.option_groups) ? (product.option_groups as Array<{
+        name?: string
+        values?: string[]
+        required?: boolean
+      }>) : []
+    const normalizedSelectedOptions = selected_options ?? {}
+
+    for (const group of optionGroups) {
+      const optionName = (group.name ?? '').trim()
+      const values = Array.isArray(group.values) ? group.values : []
+      const required = group.required !== false
+      const selectedValue = normalizedSelectedOptions[optionName]
+
+      if (!optionName || values.length === 0) {
+        continue
+      }
+      if (required && !selectedValue) {
+        return NextResponse.json(
+          { error: `${optionName} 옵션을 선택해주세요` },
+          { status: 400 }
+        )
+      }
+      if (selectedValue && !values.includes(selectedValue)) {
+        return NextResponse.json(
+          { error: `${optionName} 옵션 값이 올바르지 않습니다` },
+          { status: 400 }
+        )
+      }
     }
 
     const { data, error } = await supabase.rpc('create_reservation', {
@@ -103,6 +144,7 @@ export async function POST(request: NextRequest) {
       p_pickup_date: pickup_date || null,
       p_memo: memo?.trim() || null,
       p_privacy_agreed: privacy_agreed,
+      p_selected_options: normalizedSelectedOptions,
     })
 
     if (error) {

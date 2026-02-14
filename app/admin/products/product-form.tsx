@@ -29,6 +29,7 @@ interface Product {
   inventory_item_id?: string | null
   inventory_consume_per_sale?: number | null
   image_urls?: string[]
+  option_groups?: { name: string; values: string[]; required?: boolean }[] | null
 }
 
 interface InventoryOption {
@@ -37,6 +38,7 @@ interface InventoryOption {
   name: string
   current_quantity: number
   is_active: boolean
+  option_groups?: { name: string; values: string[]; required?: boolean }[] | null
 }
 
 interface ProductFormProps {
@@ -44,6 +46,12 @@ interface ProductFormProps {
   inventoryOptions: InventoryOption[]
   action: (formData: FormData) => Promise<{ error?: string } | undefined>
   submitLabel: string
+}
+
+interface ProductOptionRow {
+  key: string
+  valueText: string
+  required: 'required' | 'optional'
 }
 
 export function ProductForm({ product, inventoryOptions, action, submitLabel }: ProductFormProps) {
@@ -58,8 +66,51 @@ export function ProductForm({ product, inventoryOptions, action, submitLabel }: 
   const [priceDisplay, setPriceDisplay] = useState(product?.price ? formatKoreanWon(product.price) : '')
   const [error, setError] = useState<string | null>(null)
   const [inventoryLinkEnabled, setInventoryLinkEnabled] = useState(!!product?.inventory_link_enabled)
+  const [selectedInventoryItemId, setSelectedInventoryItemId] = useState(product?.inventory_item_id ?? '')
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [optionRows, setOptionRows] = useState<ProductOptionRow[]>(() => {
+    const groups = product?.option_groups ?? []
+    if (groups.length === 0) {
+      return [{ key: '', valueText: '', required: 'required' }]
+    }
+    return groups.map((group) => ({
+      key: group.name ?? '',
+      valueText: (group.values ?? []).join(', '),
+      required: group.required === false ? 'optional' : 'required',
+    }))
+  })
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  function addOptionRow() {
+    setOptionRows((prev) => [...prev, { key: '', valueText: '', required: 'required' }])
+  }
+
+  function removeOptionRow(index: number) {
+    setOptionRows((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  function updateOptionRow(
+    index: number,
+    patch: Partial<ProductOptionRow>
+  ) {
+    setOptionRows((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, ...patch } : row))
+    )
+  }
+
+  function applyOptionTemplateFromInventory(inventoryItemId: string) {
+    const inventoryItem = inventoryOptions.find((item) => item.id === inventoryItemId)
+    const template = inventoryItem?.option_groups ?? []
+    if (template.length === 0) return
+
+    setOptionRows(
+      template.map((group) => ({
+        key: group.name ?? '',
+        valueText: (group.values ?? []).join(', '),
+        required: group.required === false ? 'optional' : 'required',
+      }))
+    )
+  }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
@@ -140,6 +191,17 @@ export function ProductForm({ product, inventoryOptions, action, submitLabel }: 
     for (const file of selectedFiles) {
       formData.append('images', file)
     }
+    const optionGroups = optionRows
+      .map((row) => ({
+        name: row.key.trim(),
+        values: row.valueText
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean),
+        required: row.required === 'required',
+      }))
+      .filter((row) => row.name.length > 0 && row.values.length > 0)
+    formData.set('productOptionsJson', JSON.stringify(optionGroups))
 
     try {
       const result = await action(formData)
@@ -212,6 +274,58 @@ export function ProductForm({ product, inventoryOptions, action, submitLabel }: 
                 rows={3}
                 className="border-stone-200 bg-stone-50 focus-visible:ring-stone-400 resize-none"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-stone-700">
+                옵션 설정 <span className="text-stone-400 font-normal">(선택)</span>
+              </Label>
+              <div className="space-y-3">
+                {optionRows.map((row, index) => (
+                  <div key={index} className="grid grid-cols-1 gap-2 rounded-lg border border-stone-200 bg-stone-50 p-3 sm:grid-cols-12">
+                    <Input
+                      value={row.key}
+                      onChange={(e) => updateOptionRow(index, { key: e.target.value })}
+                      placeholder="옵션명 (예: 사이즈, 컬러, 한우)"
+                      className="sm:col-span-4 border-stone-200 bg-white focus-visible:ring-stone-400"
+                    />
+                    <Input
+                      value={row.valueText}
+                      onChange={(e) => updateOptionRow(index, { valueText: e.target.value })}
+                      placeholder="값 (예: S, M, L / 1kg, 2kg)"
+                      className="sm:col-span-5 border-stone-200 bg-white focus-visible:ring-stone-400"
+                    />
+                    <select
+                      value={row.required}
+                      onChange={(e) =>
+                        updateOptionRow(index, {
+                          required: e.target.value as 'required' | 'optional',
+                        })
+                      }
+                      className="h-10 rounded-md border border-stone-200 bg-white px-3 text-sm text-stone-900 sm:col-span-2 focus:outline-none focus:ring-2 focus:ring-stone-400"
+                    >
+                      <option value="required">필수</option>
+                      <option value="optional">선택</option>
+                    </select>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => removeOptionRow(index)}
+                      className="h-10 sm:col-span-1"
+                      disabled={optionRows.length === 1}
+                    >
+                      삭제
+                    </Button>
+                  </div>
+                ))}
+                <Button type="button" variant="outline" onClick={addOptionRow}>
+                  옵션 추가
+                </Button>
+              </div>
+              <p className="text-xs text-stone-400">
+                키-값 형식으로 여러 개 등록할 수 있습니다. 예: 한우 → 1kg, 2kg / 사이즈 → S, M, L / 컬러 → 노랑, 파랑
+              </p>
+              <input type="hidden" name="productOptionsJson" />
             </div>
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -327,7 +441,14 @@ export function ProductForm({ product, inventoryOptions, action, submitLabel }: 
                       id="inventoryItemId"
                       name="inventoryItemId"
                       required={inventoryLinkEnabled}
-                      defaultValue={product?.inventory_item_id ?? ''}
+                      value={selectedInventoryItemId}
+                      onChange={(e) => {
+                        const nextId = e.target.value
+                        setSelectedInventoryItemId(nextId)
+                        if (nextId) {
+                          applyOptionTemplateFromInventory(nextId)
+                        }
+                      }}
                       className="h-10 w-full rounded-md border border-stone-200 bg-white px-3 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-400"
                     >
                       <option value="">재고 항목 선택</option>
