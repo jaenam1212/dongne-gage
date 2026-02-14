@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import { ServiceWorkerRegister } from "@/components/customer/sw-register";
 import { UsageTracker } from "@/components/analytics/usage-tracker";
@@ -45,7 +46,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ServiceWorkerRegister />
-        <UsageTracker />
+        <Suspense fallback={null}>
+          <UsageTracker />
+        </Suspense>
         {children}
       </body>
     </html>
