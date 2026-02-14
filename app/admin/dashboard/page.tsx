@@ -25,6 +25,38 @@ export default async function DashboardPage() {
     .gte('created_at', todayStart)
     .lt('created_at', todayEnd)
 
+  const { data: todayUsageEvents } = await supabase
+    .from('usage_events')
+    .select('event_type, visitor_id, path, created_at')
+    .eq('shop_id', shop!.id)
+    .gte('created_at', todayStart)
+    .lt('created_at', todayEnd)
+    .order('created_at', { ascending: false })
+    .limit(300)
+
+  const uniqueVisitors = new Set(
+    (todayUsageEvents ?? [])
+      .filter((event) => event.event_type === 'page_view' && event.visitor_id)
+      .map((event) => event.visitor_id as string)
+  ).size
+
+  const todayPageViews = (todayUsageEvents ?? []).filter(
+    (event) => event.event_type === 'page_view'
+  ).length
+
+  const todayReservationEvents = (todayUsageEvents ?? []).filter(
+    (event) => event.event_type === 'reservation_created'
+  ).length
+
+  const pathCountMap = new Map<string, number>()
+  for (const event of todayUsageEvents ?? []) {
+    if (event.event_type !== 'page_view' || !event.path) continue
+    pathCountMap.set(event.path, (pathCountMap.get(event.path) ?? 0) + 1)
+  }
+  const popularPaths = Array.from(pathCountMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+
   const { data: recentReservations } = await supabase
     .from('reservations')
     .select('id, customer_name, customer_phone, quantity, status, created_at')
@@ -50,18 +82,56 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <h1 className="text-xl font-bold text-stone-900">대시보드</h1>
 
-      <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50">
-            <CalendarCheck className="h-5 w-5 text-amber-600" />
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50">
+              <CalendarCheck className="h-5 w-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-xs text-stone-500">오늘의 예약</p>
+              <p className="text-2xl font-bold text-stone-900">
+                {todayCount ?? 0}
+                <span className="ml-1 text-sm font-medium text-stone-400">건</span>
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs text-stone-500">오늘의 예약</p>
-            <p className="text-2xl font-bold text-stone-900">
-              {todayCount ?? 0}
-              <span className="ml-1 text-sm font-medium text-stone-400">건</span>
-            </p>
-          </div>
+        </div>
+        <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+          <p className="text-xs text-stone-500">오늘 방문자</p>
+          <p className="text-2xl font-bold text-stone-900">
+            {uniqueVisitors}
+            <span className="ml-1 text-sm font-medium text-stone-400">명</span>
+          </p>
+          <p className="mt-1 text-xs text-stone-400">페이지뷰 {todayPageViews}회</p>
+        </div>
+        <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+          <p className="text-xs text-stone-500">오늘 예약 완료 이벤트</p>
+          <p className="text-2xl font-bold text-stone-900">
+            {todayReservationEvents}
+            <span className="ml-1 text-sm font-medium text-stone-400">회</span>
+          </p>
+          <p className="mt-1 text-xs text-stone-400">예약 전환 추적</p>
+        </div>
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-sm font-semibold text-stone-700">오늘 많이 본 페이지</h2>
+        <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
+          {popularPaths.length === 0 ? (
+            <p className="text-sm text-stone-400">아직 수집된 방문 로그가 없습니다.</p>
+          ) : (
+            <div className="space-y-2">
+              {popularPaths.map(([path, count]) => (
+                <div key={path} className="flex items-center justify-between rounded-lg bg-stone-50 px-3 py-2">
+                  <p className="text-xs text-stone-700 truncate pr-3">{path}</p>
+                  <span className="rounded-full bg-stone-200 px-2 py-0.5 text-[10px] font-semibold text-stone-700">
+                    {count}회
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

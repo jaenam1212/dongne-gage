@@ -5,6 +5,7 @@ import { login } from './actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import Link from 'next/link'
 
 export default function AdminLoginPage() {
   const [error, setError] = useState<string | null>(null)
@@ -21,7 +22,7 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="min-h-dvh flex items-center justify-center bg-gradient-to-br from-stone-50 via-amber-50/30 to-stone-100 px-4">
+    <div className="min-h-dvh flex items-center justify-center bg-linear-to-br from-stone-50 via-amber-50/30 to-stone-100 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-900 text-white text-xl font-bold tracking-tighter">
@@ -79,6 +80,15 @@ export default function AdminLoginPage() {
           >
             {loading ? '로그인 중...' : '로그인'}
           </Button>
+
+          <div className="flex items-center justify-between text-xs text-stone-500">
+            <Link href="/admin/find-id" className="hover:text-stone-700 hover:underline">
+              아이디 찾기
+            </Link>
+            <Link href="/admin/reset-request" className="hover:text-stone-700 hover:underline">
+              비밀번호 찾기
+            </Link>
+          </div>
         </form>
       </div>
     </div>

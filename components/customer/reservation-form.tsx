@@ -15,6 +15,7 @@ import toast, { Toaster } from 'react-hot-toast'
 import { saveOrderToMyOrders } from '@/lib/my-orders-storage'
 import { getTodayKST } from '@/lib/datetime-kst'
 import { DatePicker } from '@/components/ui/date-picker'
+import { trackUsageEvent } from '@/lib/usage-events'
 
 interface Product {
   id: string
@@ -215,6 +216,16 @@ export function ReservationForm({
 
       const reservation = data.reservation as ReservationResult & { status?: string }
       setResult(reservation)
+      trackUsageEvent({
+        eventType: 'reservation_created',
+        path: `/${shopSlug}/reserve/${product.id}`,
+        shopSlug,
+        metadata: {
+          productId: product.id,
+          quantity: reservation.quantity,
+          optionCount: Object.keys(selectedOptions).length,
+        },
+      })
 
       try {
         saveOrderToMyOrders({

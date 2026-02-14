@@ -13,6 +13,7 @@ type RegisterResult = {
 }
 
 type ProductOptionGroup = { name: string; values: string[]; required: boolean }
+type OptionStockRow = { optionValue: string; quantity: number }
 
 type NormalizedInventoryRow = {
   rowNumber: number
@@ -23,6 +24,8 @@ type NormalizedInventoryRow = {
   minimumQuantity: number
   isActive: boolean
   optionGroups: ProductOptionGroup[]
+  stockOptionName: string | null
+  optionStocks: OptionStockRow[]
   rawData: Record<string, unknown>
 }
 
@@ -88,6 +91,45 @@ function parseOptionGroupsRaw(raw: string): ProductOptionGroup[] {
   }
 
   return groups
+}
+
+function parseOptionStocksRaw(raw: string): OptionStockRow[] {
+  const text = raw.trim()
+  if (!text) return []
+
+  return text
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const [left, right] = part.split('=')
+      const optionValue = (left ?? '').trim()
+      const quantity = parseNonNegativeInt((right ?? '').trim(), -1)
+      return { optionValue, quantity }
+    })
+    .filter((row) => row.optionValue.length > 0 && row.quantity >= 0)
+}
+
+async function syncOptionStocks(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  inventoryItemId: string,
+  optionStocks: OptionStockRow[]
+) {
+  await supabase.from('inventory_option_stocks').delete().eq('inventory_item_id', inventoryItemId)
+  if (optionStocks.length === 0) return { totalQuantity: null as number | null }
+
+  const rows = optionStocks.map((row) => ({
+    inventory_item_id: inventoryItemId,
+    option_value: row.optionValue,
+    current_quantity: row.quantity,
+    updated_at: new Date().toISOString(),
+  }))
+  const { error } = await supabase.from('inventory_option_stocks').insert(rows)
+  if (error) return { error: '옵션별 재고 저장에 실패했습니다', totalQuantity: null as number | null }
+
+  return {
+    totalQuantity: optionStocks.reduce((sum, row) => sum + row.quantity, 0),
+  }
 }
 
 function pickByAliases(
@@ -191,6 +233,25 @@ function normalizeRow(
     ]) ?? valuesInOrder[6]
   )
   const optionGroups = parseOptionGroupsRaw(optionRaw)
+  const stockOptionName =
+    normalizeCell(
+      pickByAliases(normalizedEntries, [
+        'stockoptionname',
+        'stockoption',
+        '재고옵션명',
+        '옵션재고기준',
+        '옵션기준',
+      ]) ?? valuesInOrder[7]
+    ) || null
+  const optionStocksRaw = normalizeCell(
+    pickByAliases(normalizedEntries, [
+      'optionstocks',
+      'optionstock',
+      '옵션재고',
+      '옵션별재고',
+    ]) ?? valuesInOrder[8]
+  )
+  const optionStocks = parseOptionStocksRaw(optionStocksRaw)
 
   return {
     rowNumber,
@@ -201,6 +262,8 @@ function normalizeRow(
     minimumQuantity,
     isActive,
     optionGroups,
+    stockOptionName,
+    optionStocks,
     rawData: row,
   }
 }
@@ -223,6 +286,53 @@ async function getShopIdOrError() {
   return { supabase, error: null as string | null, shopId: shop.id }
 }
 
+function generateSku() {
+  const time = Date.now().toString(36).toUpperCase()
+  const rand = crypto.randomUUID().slice(0, 6).toUpperCase()
+  return `INV-${time}-${rand}`
+}
+
+async function insertInventoryItemWithAutoSku(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  payload: {
+    shop_id: string
+    sku?: string | null
+    name: string
+    unit: string | null
+    current_quantity: number
+    minimum_quantity: number
+    is_active: boolean
+    option_groups: ProductOptionGroup[] | null
+    stock_option_name: string | null
+    updated_at: string
+  }
+): Promise<{ id: string; sku: string } | null> {
+  const baseSku = (payload.sku ?? '').trim()
+  const candidates = baseSku
+    ? [baseSku, generateSku(), generateSku()]
+    : [generateSku(), generateSku()]
+
+  for (const candidate of candidates) {
+    const { data, error } = await supabase
+      .from('inventory_items')
+      .insert({ ...payload, sku: candidate })
+      .select('id, sku')
+      .single()
+
+    if (!error && data) return data
+
+    const duplicate =
+      error?.message?.toLowerCase().includes('duplicate key') ||
+      error?.message?.toLowerCase().includes('already exists') ||
+      error?.code === '23505'
+    if (!duplicate) {
+      return null
+    }
+  }
+
+  return null
+}
+
 export async function registerInventory(formData: FormData): Promise<RegisterResult> {
   const { supabase, error, shopId } = await getShopIdOrError()
   if (error || !shopId) return { error: error ?? '인증 오류' }
@@ -238,32 +348,50 @@ export async function registerInventory(formData: FormData): Promise<RegisterRes
     const minimumQuantity = parseNonNegativeInt(formData.get('minimum_quantity'), 0)
     const isActive = parseBool(formData.get('is_active'), true)
     const optionGroups = parseOptionGroupsRaw(normalizeCell(formData.get('option_groups_raw')))
+    const stockOptionName = normalizeCell(formData.get('stock_option_name')) || null
+    const optionStocks = parseOptionStocksRaw(normalizeCell(formData.get('option_stocks_raw')))
 
-    if (!sku) return { error: 'SKU를 입력해주세요' }
     if (!name) return { error: '품목명을 입력해주세요' }
+    if (stockOptionName && optionStocks.length === 0) {
+      return { error: '옵션별 재고를 입력해주세요. 예: 노랑=10, 파랑=10' }
+    }
 
-    const { error: upsertError } = await supabase
-      .from('inventory_items')
-      .upsert(
-        {
-          shop_id: shopId,
-          sku,
-          name,
-          unit,
-          current_quantity: currentQuantity,
-          minimum_quantity: minimumQuantity,
-          is_active: isActive,
-          option_groups: optionGroups.length > 0 ? optionGroups : null,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'shop_id,sku' }
-      )
+    const inserted = await insertInventoryItemWithAutoSku(supabase, {
+      shop_id: shopId,
+      sku: sku || null,
+      name,
+      unit,
+      current_quantity: currentQuantity,
+      minimum_quantity: minimumQuantity,
+      is_active: isActive,
+      option_groups: optionGroups.length > 0 ? optionGroups : null,
+      stock_option_name: stockOptionName,
+      updated_at: new Date().toISOString(),
+    })
 
-    if (upsertError) return { error: '재고 등록에 실패했습니다' }
+    if (!inserted) return { error: '재고 등록에 실패했습니다' }
+
+    const optionSync = await syncOptionStocks(
+      supabase,
+      inserted.id,
+      stockOptionName ? optionStocks : []
+    )
+    if (optionSync.error) return { error: optionSync.error }
+    if (optionSync.totalQuantity !== null) {
+      await supabase
+        .from('inventory_items')
+        .update({ current_quantity: optionSync.totalQuantity, updated_at: new Date().toISOString() })
+          .eq('id', inserted.id)
+    }
 
     revalidatePath('/admin/inventory')
     revalidatePath('/admin/products/new')
-    return { success: '재고 1건이 등록되었습니다', totalRows: 1, successRows: 1, failedRows: 0 }
+    return {
+      success: `재고 1건이 등록되었습니다 (SKU: ${inserted.sku})`,
+      totalRows: 1,
+      successRows: 1,
+      failedRows: 0,
+    }
   }
 
   const ext = excelFile.name.split('.').pop()?.toLowerCase()
@@ -312,17 +440,6 @@ export async function registerInventory(formData: FormData): Promise<RegisterRes
   }[] = []
 
   for (const row of parsedRows) {
-    if (!row.sku) {
-      failedRows++
-      failedEntries.push({
-        job_id: job.id,
-        row_type: 'inventory_item',
-        row_number: row.rowNumber,
-        raw_data: row.rawData,
-        error_message: 'SKU를 찾을 수 없습니다',
-      })
-      continue
-    }
     if (!row.name) {
       failedRows++
       failedEntries.push({
@@ -335,24 +452,20 @@ export async function registerInventory(formData: FormData): Promise<RegisterRes
       continue
     }
 
-    const { error: upsertError } = await supabase
-      .from('inventory_items')
-      .upsert(
-        {
-          shop_id: shopId,
-          sku: row.sku,
-          name: row.name,
-          unit: row.unit,
-          current_quantity: row.currentQuantity,
-          minimum_quantity: row.minimumQuantity,
-          is_active: row.isActive,
-          option_groups: row.optionGroups.length > 0 ? row.optionGroups : null,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'shop_id,sku' }
-      )
+    const inserted = await insertInventoryItemWithAutoSku(supabase, {
+      shop_id: shopId,
+      sku: row.sku || null,
+      name: row.name,
+      unit: row.unit,
+      current_quantity: row.currentQuantity,
+      minimum_quantity: row.minimumQuantity,
+      is_active: row.isActive,
+      option_groups: row.optionGroups.length > 0 ? row.optionGroups : null,
+      stock_option_name: row.stockOptionName,
+      updated_at: new Date().toISOString(),
+    })
 
-    if (upsertError) {
+    if (!inserted) {
       failedRows++
       failedEntries.push({
         job_id: job.id,
@@ -362,6 +475,29 @@ export async function registerInventory(formData: FormData): Promise<RegisterRes
         error_message: 'DB 저장 실패',
       })
       continue
+    }
+
+    const optionSync = await syncOptionStocks(
+      supabase,
+      inserted.id,
+      row.stockOptionName ? row.optionStocks : []
+    )
+    if (optionSync.error) {
+      failedRows++
+      failedEntries.push({
+        job_id: job.id,
+        row_type: 'inventory_item',
+        row_number: row.rowNumber,
+        raw_data: row.rawData,
+        error_message: optionSync.error,
+      })
+      continue
+    }
+    if (optionSync.totalQuantity !== null) {
+      await supabase
+        .from('inventory_items')
+        .update({ current_quantity: optionSync.totalQuantity, updated_at: new Date().toISOString() })
+          .eq('id', inserted.id)
     }
 
     successRows++

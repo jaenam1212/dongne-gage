@@ -8,13 +8,14 @@ import {
   CalendarCheck,
   Boxes,
   Settings,
+  BarChart3,
   LogOut,
   Store,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { logout } from '@/app/admin/login/actions'
 
-const NAV_ITEMS = [
+const BASE_NAV_ITEMS = [
   { href: '/admin/dashboard', label: '대시보드', icon: LayoutDashboard },
   { href: '/admin/products', label: '상품 관리', icon: Package },
   { href: '/admin/reservations', label: '예약 관리', icon: CalendarCheck },
@@ -25,11 +26,15 @@ const NAV_ITEMS = [
 interface AdminShellProps {
   shopName: string
   logoUrl?: string | null
+  isSystemOwner?: boolean
   children: React.ReactNode
 }
 
-export function AdminShell({ shopName, children }: AdminShellProps) {
+export function AdminShell({ shopName, isSystemOwner = false, children }: AdminShellProps) {
   const pathname = usePathname()
+  const navItems = isSystemOwner
+    ? [...BASE_NAV_ITEMS, { href: '/admin/system-dashboard', label: '시스템 대시보드', icon: BarChart3 }]
+    : BASE_NAV_ITEMS
 
   return (
     <div className="min-h-dvh bg-stone-50">
@@ -45,7 +50,7 @@ export function AdminShell({ shopName, children }: AdminShellProps) {
         </div>
 
         <nav className="flex-1 space-y-1 px-3 py-4">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
             return (
               <Link
@@ -101,7 +106,7 @@ export function AdminShell({ shopName, children }: AdminShellProps) {
       {/* Desktop Header */}
       <header className="sticky top-0 z-20 hidden h-14 items-center justify-between border-b border-stone-200 bg-white/80 backdrop-blur-lg px-6 md:ml-60 md:flex">
         <h2 className="text-sm font-medium text-stone-700">
-          {NAV_ITEMS.find((item) => pathname.startsWith(item.href))?.label ?? '관리자'}
+          {navItems.find((item) => pathname.startsWith(item.href))?.label ?? '관리자'}
         </h2>
         <div className="flex items-center gap-2 text-xs text-stone-500">
           <Store className="h-3.5 w-3.5" />
@@ -119,7 +124,7 @@ export function AdminShell({ shopName, children }: AdminShellProps) {
       {/* Mobile Bottom Navigation */}
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-stone-200 bg-white/95 backdrop-blur-lg md:hidden">
         <div className="flex items-center justify-around py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
             return (
               <Link

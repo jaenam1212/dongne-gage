@@ -23,12 +23,16 @@ export default async function AdminLayout({
 
   const { data: shop } = await supabase
     .from('shops')
-    .select('name, logo_url')
+    .select('name, logo_url, is_system_owner')
     .eq('owner_id', user.id)
     .single()
 
   return (
-    <AdminShell shopName={shop?.name ?? '내 가게'} logoUrl={shop?.logo_url}>
+    <AdminShell
+      shopName={shop?.name ?? '내 가게'}
+      logoUrl={shop?.logo_url}
+      isSystemOwner={shop?.is_system_owner ?? false}
+    >
       {children}
     </AdminShell>
   )

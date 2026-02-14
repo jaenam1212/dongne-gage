@@ -24,7 +24,7 @@ export default async function InventoryPage() {
 
   const { data: items } = await supabase
     .from('inventory_items')
-    .select('id, sku, name, unit, current_quantity, minimum_quantity, is_active, option_groups, updated_at')
+    .select('id, sku, name, unit, current_quantity, minimum_quantity, is_active, option_groups, stock_option_name, updated_at')
     .eq('shop_id', shop.id)
     .order('updated_at', { ascending: false })
 
