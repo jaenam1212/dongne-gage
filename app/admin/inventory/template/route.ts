@@ -29,7 +29,7 @@ export async function GET() {
   XLSX.utils.book_append_sheet(workbook, inventorySheet, 'InventoryItems')
   XLSX.utils.book_append_sheet(workbook, mappingSheet, 'ProductMappings')
 
-  const fileBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' }) as Buffer
+  const fileBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer
 
   return new NextResponse(fileBuffer, {
     headers: {
