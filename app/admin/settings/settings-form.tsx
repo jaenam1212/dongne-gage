@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import Image from 'next/image'
 import { updateShop } from './actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -133,9 +134,13 @@ export function SettingsForm({ shop }: { shop: Shop | null }) {
                 className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-stone-200 bg-stone-50 hover:border-stone-300 hover:bg-stone-100 transition-colors overflow-hidden"
               >
                 {previewUrl ? (
-                  <img
+                  <Image
                     src={previewUrl}
                     alt="로고 미리보기"
+                    width={80}
+                    height={80}
+                    sizes="80px"
+                    unoptimized
                     className="h-full w-full object-cover"
                   />
                 ) : (

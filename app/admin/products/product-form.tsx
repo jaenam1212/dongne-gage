@@ -164,7 +164,7 @@ export function ProductForm({ product, inventoryOptions, action, submitLabel }: 
                 name="title"
                 defaultValue={product?.title ?? ''}
                 required
-                placeholder="예: 설 명절 한우 세트"
+                placeholder="예: 시즌 한정 기획 상품"
                 className="border-stone-200 bg-stone-50 focus-visible:ring-stone-400"
               />
             </div>

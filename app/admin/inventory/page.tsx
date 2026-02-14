@@ -47,12 +47,5 @@ export default async function InventoryPage() {
     linked_count: linkedCountMap.get(item.id) ?? 0,
   }))
 
-  const { data: jobs } = await supabase
-    .from('inventory_import_jobs')
-    .select('id, source_type, dry_run, status, total_rows, success_rows, failed_rows, error_message, created_at')
-    .eq('shop_id', shop.id)
-    .order('created_at', { ascending: false })
-    .limit(8)
-
-  return <InventoryClient items={normalizedItems} jobs={jobs ?? []} />
+  return <InventoryClient items={normalizedItems} />
 }

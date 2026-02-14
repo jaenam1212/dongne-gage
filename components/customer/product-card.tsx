@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { Clock, Package, ShoppingBag } from 'lucide-react'
 import { formatKoreanWon } from '@/lib/utils'
 import { formatDateTimeKST } from '@/lib/datetime-kst'
@@ -59,9 +60,11 @@ export function ProductCard({
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-stone-100">
         {product.image_url ? (
-          <img
+          <Image
             src={product.image_url}
             alt={product.title}
+            fill
+            sizes="(max-width: 768px) 100vw, 50vw"
             className={`h-full w-full object-cover transition-transform duration-500 ${
               unavailable ? '' : 'group-hover:scale-105'
             }`}

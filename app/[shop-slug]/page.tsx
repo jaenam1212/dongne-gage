@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/server'
 import { ProductCard } from '@/components/customer/product-card'
 import { PwaTutorialLink } from '@/components/customer/pwa-tutorial-link'
@@ -75,13 +76,16 @@ export default async function ShopPage({ params }: Props) {
   return (
     <div className="min-h-dvh bg-stone-50">
       <header className="relative overflow-hidden border-b border-stone-200 bg-white">
-        <div className="absolute inset-0 bg-gradient-to-br from-stone-100 via-white to-stone-50" />
+        <div className="absolute inset-0 bg-linear-to-br from-stone-100 via-white to-stone-50" />
         <div className="relative mx-auto max-w-2xl px-4 py-8 md:py-12">
           <div className="flex items-center gap-4">
             {shop.logo_url ? (
-              <img
+              <Image
                 src={shop.logo_url}
                 alt={shop.name}
+                width={56}
+                height={56}
+                sizes="56px"
                 className="h-14 w-14 rounded-2xl object-cover shadow-sm border border-stone-200"
               />
             ) : (

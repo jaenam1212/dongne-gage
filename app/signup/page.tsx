@@ -117,7 +117,7 @@ export default function SignupPage() {
                   required
                   value={shopName}
                   onChange={handleShopNameChange}
-                  placeholder="예: 테스트 정육점"
+                  placeholder="예: 우리동네 상점"
                   className="border-stone-200 bg-stone-50 focus-visible:ring-stone-400"
                 />
               </div>

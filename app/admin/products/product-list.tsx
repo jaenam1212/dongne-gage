@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { Plus, Pencil, Package, Clock, Trash2 } from 'lucide-react'
@@ -263,9 +264,12 @@ function ProductCard({
         )}
         <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-stone-100">
           {product.image_url ? (
-            <img
+            <Image
               src={product.image_url}
               alt={product.title}
+              width={80}
+              height={80}
+              sizes="80px"
               className="h-full w-full object-cover"
             />
           ) : (

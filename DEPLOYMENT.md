@@ -57,8 +57,8 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO shops (owner_id, slug, name, phone, is_active)
 VALUES (
   '<user-id-from-auth-dashboard>',
-  'test-butcher',
-  '테스트 정육점',
+  'test-shop',
+  '테스트 상점',
   '02-1234-5678',
   true
 );
@@ -145,7 +145,7 @@ curl https://your-domain.vercel.app/sw.js
 npm install -g lighthouse
 
 # Run Lighthouse
-lighthouse https://your-domain.vercel.app/test-butcher --view
+lighthouse https://your-domain.vercel.app/test-shop --view
 
 # Check scores:
 # - Performance: >70
@@ -235,7 +235,7 @@ curl https://your-project.supabase.co/rest/v1/ \
 
 ## Next Steps After MVP
 
-1. **User Feedback**: Get feedback from first customer (정육점)
+1. **User Feedback**: Get feedback from first customer (업종 무관)
 2. **Iterate**: Fix bugs, improve UX based on feedback
 3. **Scale**: Add more features (카카오 알림톡, analytics, etc.)
 4. **Marketing**: Launch landing page, SEO optimization

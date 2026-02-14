@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Calendar, Package, FileDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -353,9 +354,12 @@ function ReservationCard({
         )}
         <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-stone-100">
           {reservation.products.image_url ? (
-            <img
+            <Image
               src={reservation.products.image_url}
               alt={reservation.products.title}
+              width={80}
+              height={80}
+              sizes="80px"
               className="h-full w-full object-cover"
             />
           ) : (

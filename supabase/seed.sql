@@ -32,9 +32,9 @@ INSERT INTO auth.identities (
 INSERT INTO shops (id, owner_id, slug, name, description, phone, address) VALUES (
   '223e4567-e89b-12d3-a456-426614174000',
   '123e4567-e89b-12d3-a456-426614174000',
-  'test-butcher',
-  '테스트 정육점',
-  '최고의 한우를 제공합니다',
+  'test-shop',
+  '테스트 상점',
+  '우리 동네의 다양한 상품을 제공합니다',
   '02-1234-5678',
   '서울시 강남구 테스트로 123'
 );

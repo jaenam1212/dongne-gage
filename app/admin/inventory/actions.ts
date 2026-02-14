@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import * as XLSX from 'xlsx'
 import { createClient } from '@/lib/supabase/server'
 
-type ImportResult = {
+type RegisterResult = {
   error?: string
   success?: string
   totalRows?: number
@@ -12,7 +12,7 @@ type ImportResult = {
   failedRows?: number
 }
 
-type InventoryItemRow = {
+type NormalizedInventoryRow = {
   rowNumber: number
   sku: string
   name: string
@@ -20,14 +20,14 @@ type InventoryItemRow = {
   currentQuantity: number
   minimumQuantity: number
   isActive: boolean
+  rawData: Record<string, unknown>
 }
 
-type ProductMappingRow = {
-  rowNumber: number
-  productIdentifier: string
-  inventorySku: string
-  consumePerSale: number
-  isEnabled: boolean
+function normalizeHeader(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[_\-./()[\]]+/g, '')
 }
 
 function normalizeCell(value: unknown): string {
@@ -35,120 +35,129 @@ function normalizeCell(value: unknown): string {
   return String(value).trim()
 }
 
-function parseBool(value: unknown, fallback: boolean): boolean {
+function parseNonNegativeInt(value: unknown, fallback = 0): number {
+  const raw = normalizeCell(value).replace(/,/g, '')
+  if (!raw) return fallback
+  const parsed = Number.parseInt(raw, 10)
+  return Number.isNaN(parsed) || parsed < 0 ? fallback : parsed
+}
+
+function parseBool(value: unknown, fallback = true): boolean {
   const raw = normalizeCell(value).toLowerCase()
   if (!raw) return fallback
-  if (['true', '1', 'y', 'yes', 'on'].includes(raw)) return true
-  if (['false', '0', 'n', 'no', 'off'].includes(raw)) return false
+  if (['true', '1', 'y', 'yes', 'on', '사용', '활성', 'o'].includes(raw)) return true
+  if (['false', '0', 'n', 'no', 'off', '미사용', '비활성', 'x'].includes(raw)) return false
   return fallback
 }
 
-function parsePositiveInt(value: unknown, fallback: number): number {
-  const raw = normalizeCell(value)
-  if (!raw) return fallback
-  const num = Number.parseInt(raw, 10)
-  return Number.isNaN(num) || num <= 0 ? fallback : num
-}
-
-function parseNonNegativeInt(value: unknown, fallback: number): number {
-  const raw = normalizeCell(value)
-  if (!raw) return fallback
-  const num = Number.parseInt(raw, 10)
-  return Number.isNaN(num) || num < 0 ? fallback : num
-}
-
-function readSheetRows(sheet: XLSX.WorkSheet): Record<string, unknown>[] {
-  return XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
-    defval: '',
-    raw: false,
-  })
-}
-
-function parseInventoryRows(rows: Record<string, unknown>[]): InventoryItemRow[] {
-  return rows.map((row, idx) => ({
-    rowNumber: idx + 2,
-    sku: normalizeCell(row.sku),
-    name: normalizeCell(row.name),
-    unit: normalizeCell(row.unit) || null,
-    currentQuantity: parseNonNegativeInt(row.current_quantity, 0),
-    minimumQuantity: parseNonNegativeInt(row.minimum_quantity, 0),
-    isActive: parseBool(row.is_active, true),
-  }))
-}
-
-function parseMappingRows(rows: Record<string, unknown>[]): ProductMappingRow[] {
-  return rows.map((row, idx) => ({
-    rowNumber: idx + 2,
-    productIdentifier: normalizeCell(row.product_id_or_title),
-    inventorySku: normalizeCell(row.inventory_sku),
-    consumePerSale: parsePositiveInt(row.consume_per_sale, 1),
-    isEnabled: parseBool(row.is_enabled, true),
-  }))
-}
-
-async function parseImportFiles(formData: FormData): Promise<{
-  sourceType: 'xlsx' | 'csv'
-  inventoryRows: InventoryItemRow[]
-  mappingRows: ProductMappingRow[]
-}> {
-  const workbookFile = formData.get('workbookFile') as File | null
-  const inventoryCsvFile = formData.get('inventoryCsvFile') as File | null
-  const mappingCsvFile = formData.get('mappingCsvFile') as File | null
-
-  if (workbookFile && workbookFile.size > 0) {
-    const ext = workbookFile.name.split('.').pop()?.toLowerCase()
-    if (ext !== 'xlsx') {
-      throw new Error('엑셀 업로드는 .xlsx 파일만 가능합니다')
-    }
-
-    const data = new Uint8Array(await workbookFile.arrayBuffer())
-    const workbook = XLSX.read(data, { type: 'array' })
-    const inventorySheet = workbook.Sheets.InventoryItems
-    const mappingSheet = workbook.Sheets.ProductMappings
-
-    if (!inventorySheet || !mappingSheet) {
-      throw new Error('엑셀 파일에 InventoryItems / ProductMappings 시트가 모두 필요합니다')
-    }
-
-    return {
-      sourceType: 'xlsx',
-      inventoryRows: parseInventoryRows(readSheetRows(inventorySheet)),
-      mappingRows: parseMappingRows(readSheetRows(mappingSheet)),
-    }
+function pickByAliases(
+  rowEntries: Array<[string, unknown]>,
+  aliases: string[]
+): unknown {
+  for (const alias of aliases) {
+    const found = rowEntries.find(([key]) => key === alias)
+    if (found) return found[1]
   }
-
-  if (inventoryCsvFile && inventoryCsvFile.size > 0 && mappingCsvFile && mappingCsvFile.size > 0) {
-    const inventoryData = new Uint8Array(await inventoryCsvFile.arrayBuffer())
-    const mappingData = new Uint8Array(await mappingCsvFile.arrayBuffer())
-
-    const inventoryWorkbook = XLSX.read(inventoryData, { type: 'array' })
-    const mappingWorkbook = XLSX.read(mappingData, { type: 'array' })
-    const inventorySheet = inventoryWorkbook.Sheets[inventoryWorkbook.SheetNames[0]]
-    const mappingSheet = mappingWorkbook.Sheets[mappingWorkbook.SheetNames[0]]
-
-    if (!inventorySheet || !mappingSheet) {
-      throw new Error('CSV 파일을 읽을 수 없습니다')
-    }
-
-    return {
-      sourceType: 'csv',
-      inventoryRows: parseInventoryRows(readSheetRows(inventorySheet)),
-      mappingRows: parseMappingRows(readSheetRows(mappingSheet)),
-    }
-  }
-
-  throw new Error('업로드 파일을 선택해주세요 (.xlsx 또는 재고/매핑 CSV 2개)')
+  return undefined
 }
 
-export async function importInventoryWorkbook(formData: FormData): Promise<ImportResult> {
+function normalizeRow(
+  row: Record<string, unknown>,
+  rowNumber: number
+): NormalizedInventoryRow {
+  const normalizedEntries = Object.entries(row).map(([k, v]) => [normalizeHeader(k), v] as [string, unknown])
+  const valuesInOrder = Object.values(row)
+
+  const sku =
+    normalizeCell(
+      pickByAliases(normalizedEntries, [
+        'sku',
+        'code',
+        'itemcode',
+        'productcode',
+        '품목코드',
+        '코드',
+      ])
+    ) || normalizeCell(valuesInOrder[0])
+
+  const name =
+    normalizeCell(
+      pickByAliases(normalizedEntries, [
+        'name',
+        'itemname',
+        'productname',
+        '품목명',
+        '재고명',
+        '상품명',
+      ])
+    ) || normalizeCell(valuesInOrder[1])
+
+  const unit =
+    normalizeCell(
+      pickByAliases(normalizedEntries, [
+        'unit',
+        '단위',
+      ])
+    ) || normalizeCell(valuesInOrder[2])
+
+  const currentQuantity = parseNonNegativeInt(
+    pickByAliases(normalizedEntries, [
+      'currentquantity',
+      'quantity',
+      'qty',
+      'stock',
+      'onhand',
+      '재고',
+      '재고수량',
+      '현재수량',
+      '수량',
+    ]) ?? valuesInOrder[3],
+    0
+  )
+
+  const minimumQuantity = parseNonNegativeInt(
+    pickByAliases(normalizedEntries, [
+      'minimumquantity',
+      'minquantity',
+      'minqty',
+      'safetystock',
+      '최소수량',
+      '최소재고',
+      '안전재고',
+    ]) ?? valuesInOrder[4],
+    0
+  )
+
+  const isActive = parseBool(
+    pickByAliases(normalizedEntries, [
+      'isactive',
+      'active',
+      '활성',
+      '활성여부',
+      '사용여부',
+    ]) ?? valuesInOrder[5],
+    true
+  )
+
+  return {
+    rowNumber,
+    sku,
+    name,
+    unit: unit || null,
+    currentQuantity,
+    minimumQuantity,
+    isActive,
+    rawData: row,
+  }
+}
+
+async function getShopIdOrError() {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) {
-    return { error: '인증이 필요합니다' }
-  }
+  if (!user) return { supabase, error: '인증이 필요합니다', shopId: null as string | null }
 
   const { data: shop } = await supabase
     .from('shops')
@@ -156,273 +165,171 @@ export async function importInventoryWorkbook(formData: FormData): Promise<Impor
     .eq('owner_id', user.id)
     .single()
 
-  if (!shop) {
-    return { error: '가게를 찾을 수 없습니다' }
+  if (!shop) return { supabase, error: '가게를 찾을 수 없습니다', shopId: null as string | null }
+  return { supabase, error: null as string | null, shopId: shop.id }
+}
+
+export async function registerInventory(formData: FormData): Promise<RegisterResult> {
+  const { supabase, error, shopId } = await getShopIdOrError()
+  if (error || !shopId) return { error: error ?? '인증 오류' }
+
+  const excelFile = formData.get('excelFile') as File | null
+  const hasExcel = excelFile && excelFile.size > 0
+
+  if (!hasExcel) {
+    const sku = normalizeCell(formData.get('sku'))
+    const name = normalizeCell(formData.get('name'))
+    const unit = normalizeCell(formData.get('unit')) || null
+    const currentQuantity = parseNonNegativeInt(formData.get('current_quantity'), 0)
+    const minimumQuantity = parseNonNegativeInt(formData.get('minimum_quantity'), 0)
+    const isActive = parseBool(formData.get('is_active'), true)
+
+    if (!sku) return { error: 'SKU를 입력해주세요' }
+    if (!name) return { error: '품목명을 입력해주세요' }
+
+    const { error: upsertError } = await supabase
+      .from('inventory_items')
+      .upsert(
+        {
+          shop_id: shopId,
+          sku,
+          name,
+          unit,
+          current_quantity: currentQuantity,
+          minimum_quantity: minimumQuantity,
+          is_active: isActive,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'shop_id,sku' }
+      )
+
+    if (upsertError) return { error: '재고 등록에 실패했습니다' }
+
+    revalidatePath('/admin/inventory')
+    revalidatePath('/admin/products/new')
+    return { success: '재고 1건이 등록되었습니다', totalRows: 1, successRows: 1, failedRows: 0 }
   }
 
-  const dryRun = (formData.get('dryRun') as string) === 'true'
-
-  let parsed: Awaited<ReturnType<typeof parseImportFiles>>
-  try {
-    parsed = await parseImportFiles(formData)
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : '파일 파싱에 실패했습니다' }
+  const ext = excelFile.name.split('.').pop()?.toLowerCase()
+  if (!ext || !['xlsx', 'xls', 'csv'].includes(ext)) {
+    return { error: '엑셀(.xlsx/.xls) 또는 CSV 파일만 업로드할 수 있습니다' }
   }
 
-  const totalRows = parsed.inventoryRows.length + parsed.mappingRows.length
-  const { data: job, error: jobCreateError } = await supabase
+  const sourceType = ext === 'csv' ? 'csv' : 'xlsx'
+  const bytes = new Uint8Array(await excelFile.arrayBuffer())
+  const workbook = XLSX.read(bytes, { type: 'array' })
+  const firstSheetName = workbook.SheetNames[0]
+  if (!firstSheetName) return { error: '시트가 비어 있습니다' }
+
+  const sheet = workbook.Sheets[firstSheetName]
+  const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+    defval: '',
+    raw: false,
+  })
+
+  if (rawRows.length === 0) return { error: '파일에 데이터가 없습니다' }
+
+  const parsedRows = rawRows.map((row, i) => normalizeRow(row, i + 2))
+
+  const { data: job, error: jobError } = await supabase
     .from('inventory_import_jobs')
     .insert({
-      shop_id: shop.id,
-      source_type: parsed.sourceType,
-      dry_run: dryRun,
+      shop_id: shopId,
+      source_type: sourceType,
+      dry_run: false,
       status: 'processing',
-      total_rows: totalRows,
+      total_rows: parsedRows.length,
     })
     .select('id')
     .single()
 
-  if (jobCreateError || !job) {
-    return { error: '업로드 작업 생성에 실패했습니다' }
-  }
+  if (jobError || !job) return { error: '등록 작업 생성에 실패했습니다' }
 
   let successRows = 0
   let failedRows = 0
-  const rowErrors: {
+  const failedEntries: {
     job_id: string
-    row_type: 'inventory_item' | 'product_mapping'
+    row_type: 'inventory_item'
     row_number: number
     raw_data: Record<string, unknown>
     error_message: string
   }[] = []
 
-  try {
-    const incomingSkus = new Set<string>()
-
-    for (const row of parsed.inventoryRows) {
-      if (!row.sku) {
-        failedRows++
-        rowErrors.push({
-          job_id: job.id,
-          row_type: 'inventory_item',
-          row_number: row.rowNumber,
-          raw_data: row as unknown as Record<string, unknown>,
-          error_message: 'sku가 비어 있습니다',
-        })
-        continue
-      }
-      if (!row.name) {
-        failedRows++
-        rowErrors.push({
-          job_id: job.id,
-          row_type: 'inventory_item',
-          row_number: row.rowNumber,
-          raw_data: row as unknown as Record<string, unknown>,
-          error_message: 'name이 비어 있습니다',
-        })
-        continue
-      }
-
-      incomingSkus.add(row.sku)
-
-      if (!dryRun) {
-        const { error } = await supabase
-          .from('inventory_items')
-          .upsert(
-            {
-              shop_id: shop.id,
-              sku: row.sku,
-              name: row.name,
-              unit: row.unit,
-              current_quantity: row.currentQuantity,
-              minimum_quantity: row.minimumQuantity,
-              is_active: row.isActive,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'shop_id,sku' }
-          )
-
-        if (error) {
-          failedRows++
-          rowErrors.push({
-            job_id: job.id,
-            row_type: 'inventory_item',
-            row_number: row.rowNumber,
-            raw_data: row as unknown as Record<string, unknown>,
-            error_message: '재고 항목 업서트 실패',
-          })
-          continue
-        }
-      }
-
-      successRows++
+  for (const row of parsedRows) {
+    if (!row.sku) {
+      failedRows++
+      failedEntries.push({
+        job_id: job.id,
+        row_type: 'inventory_item',
+        row_number: row.rowNumber,
+        raw_data: row.rawData,
+        error_message: 'SKU를 찾을 수 없습니다',
+      })
+      continue
+    }
+    if (!row.name) {
+      failedRows++
+      failedEntries.push({
+        job_id: job.id,
+        row_type: 'inventory_item',
+        row_number: row.rowNumber,
+        raw_data: row.rawData,
+        error_message: '품목명을 찾을 수 없습니다',
+      })
+      continue
     }
 
-    const { data: products } = await supabase
-      .from('products')
-      .select('id, title')
-      .eq('shop_id', shop.id)
-
-    const productsById = new Map<string, { id: string; title: string }>()
-    const productsByTitle = new Map<string, { id: string; title: string }[]>()
-
-    for (const product of products ?? []) {
-      productsById.set(product.id, product)
-      const key = product.title.trim().toLowerCase()
-      const prev = productsByTitle.get(key) ?? []
-      prev.push(product)
-      productsByTitle.set(key, prev)
-    }
-
-    const { data: inventoryItems } = await supabase
+    const { error: upsertError } = await supabase
       .from('inventory_items')
-      .select('id, sku')
-      .eq('shop_id', shop.id)
+      .upsert(
+        {
+          shop_id: shopId,
+          sku: row.sku,
+          name: row.name,
+          unit: row.unit,
+          current_quantity: row.currentQuantity,
+          minimum_quantity: row.minimumQuantity,
+          is_active: row.isActive,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'shop_id,sku' }
+      )
 
-    const inventoryBySku = new Map<string, { id: string; sku: string }>()
-    for (const item of inventoryItems ?? []) {
-      inventoryBySku.set(item.sku, item)
-    }
-
-    for (const row of parsed.mappingRows) {
-      if (!row.productIdentifier) {
-        failedRows++
-        rowErrors.push({
-          job_id: job.id,
-          row_type: 'product_mapping',
-          row_number: row.rowNumber,
-          raw_data: row as unknown as Record<string, unknown>,
-          error_message: 'product_id_or_title이 비어 있습니다',
-        })
-        continue
-      }
-
-      const productById = productsById.get(row.productIdentifier)
-      const productByTitleCandidates = productsByTitle.get(row.productIdentifier.toLowerCase()) ?? []
-      const product =
-        productById ??
-        (productByTitleCandidates.length === 1 ? productByTitleCandidates[0] : null)
-
-      if (!product) {
-        const reason = productByTitleCandidates.length > 1 ? '동일한 상품명이 여러 개 존재합니다' : '상품을 찾을 수 없습니다'
-        failedRows++
-        rowErrors.push({
-          job_id: job.id,
-          row_type: 'product_mapping',
-          row_number: row.rowNumber,
-          raw_data: row as unknown as Record<string, unknown>,
-          error_message: reason,
-        })
-        continue
-      }
-
-      if (!row.inventorySku) {
-        failedRows++
-        rowErrors.push({
-          job_id: job.id,
-          row_type: 'product_mapping',
-          row_number: row.rowNumber,
-          raw_data: row as unknown as Record<string, unknown>,
-          error_message: 'inventory_sku가 비어 있습니다',
-        })
-        continue
-      }
-
-      const inventoryItem = inventoryBySku.get(row.inventorySku)
-      const existsInIncoming = incomingSkus.has(row.inventorySku)
-
-      if (!inventoryItem && !(dryRun && existsInIncoming)) {
-        failedRows++
-        rowErrors.push({
-          job_id: job.id,
-          row_type: 'product_mapping',
-          row_number: row.rowNumber,
-          raw_data: row as unknown as Record<string, unknown>,
-          error_message: `SKU(${row.inventorySku})에 해당하는 재고 항목이 없습니다`,
-        })
-        continue
-      }
-
-      if (!dryRun) {
-        if (!inventoryItem) {
-          failedRows++
-          rowErrors.push({
-            job_id: job.id,
-            row_type: 'product_mapping',
-            row_number: row.rowNumber,
-            raw_data: row as unknown as Record<string, unknown>,
-            error_message: `SKU(${row.inventorySku}) 재고 항목 조회 실패`,
-          })
-          continue
-        }
-
-        const { error: upsertError } = await supabase
-          .from('product_inventory_links')
-          .upsert(
-            {
-              product_id: product.id,
-              inventory_item_id: inventoryItem.id,
-              consume_per_sale: row.consumePerSale,
-              is_enabled: row.isEnabled,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'product_id,inventory_item_id' }
-          )
-
-        if (upsertError) {
-          failedRows++
-          rowErrors.push({
-            job_id: job.id,
-            row_type: 'product_mapping',
-            row_number: row.rowNumber,
-            raw_data: row as unknown as Record<string, unknown>,
-            error_message: '상품 연동 업서트 실패',
-          })
-          continue
-        }
-      }
-
-      successRows++
-    }
-
-    if (rowErrors.length > 0) {
-      await supabase.from('inventory_import_rows').insert(rowErrors)
-    }
-
-    const status = failedRows > 0 && successRows === 0 ? 'failed' : 'completed'
-    await supabase
-      .from('inventory_import_jobs')
-      .update({
-        status,
-        success_rows: successRows,
-        failed_rows: failedRows,
-        completed_at: new Date().toISOString(),
+    if (upsertError) {
+      failedRows++
+      failedEntries.push({
+        job_id: job.id,
+        row_type: 'inventory_item',
+        row_number: row.rowNumber,
+        raw_data: row.rawData,
+        error_message: 'DB 저장 실패',
       })
-      .eq('id', job.id)
-
-    revalidatePath('/admin/inventory')
-    revalidatePath('/admin/products')
-
-    return {
-      success: dryRun
-        ? `검증 완료: 성공 ${successRows}건, 실패 ${failedRows}건`
-        : `업로드 완료: 성공 ${successRows}건, 실패 ${failedRows}건`,
-      totalRows,
-      successRows,
-      failedRows,
+      continue
     }
-  } catch (error) {
-    await supabase
-      .from('inventory_import_jobs')
-      .update({
-        status: 'failed',
-        success_rows: successRows,
-        failed_rows: failedRows,
-        error_message: error instanceof Error ? error.message : '처리 중 오류가 발생했습니다',
-        completed_at: new Date().toISOString(),
-      })
-      .eq('id', job.id)
 
-    return { error: error instanceof Error ? error.message : '업로드 처리에 실패했습니다' }
+    successRows++
+  }
+
+  if (failedEntries.length > 0) {
+    await supabase.from('inventory_import_rows').insert(failedEntries)
+  }
+
+  await supabase
+    .from('inventory_import_jobs')
+    .update({
+      status: failedRows > 0 && successRows === 0 ? 'failed' : 'completed',
+      success_rows: successRows,
+      failed_rows: failedRows,
+      completed_at: new Date().toISOString(),
+    })
+    .eq('id', job.id)
+
+  revalidatePath('/admin/inventory')
+  revalidatePath('/admin/products/new')
+  return {
+    success: `등록 완료: 성공 ${successRows}건, 실패 ${failedRows}건`,
+    totalRows: parsedRows.length,
+    successRows,
+    failedRows,
   }
 }
