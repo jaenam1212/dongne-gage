@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { sendPushToShop } from '@/lib/push'
 import { fromKSTToISOUTC } from '@/lib/datetime-kst'
+import { assertShopWritable, READ_ONLY_MESSAGE } from '@/lib/billing'
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 type ProductOptionGroup = { name: string; values: string[]; required: boolean }
@@ -226,6 +227,12 @@ export async function createProduct(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('인증이 필요합니다')
 
+  try {
+    await assertShopWritable(supabase, user.id)
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : READ_ONLY_MESSAGE }
+  }
+
   const { data: shop } = await supabase
     .from('shops')
     .select('id, name, slug')
@@ -347,6 +354,12 @@ export async function updateProduct(productId: string, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('인증이 필요합니다')
+
+  try {
+    await assertShopWritable(supabase, user.id)
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : READ_ONLY_MESSAGE }
+  }
 
   const { data: product } = await supabase
     .from('products')
@@ -480,6 +493,8 @@ export async function toggleProductActive(productId: string, isActive: boolean) 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('인증이 필요합니다')
 
+  await assertShopWritable(supabase, user.id)
+
   const { data: shop } = await supabase
     .from('shops')
     .select('id')
@@ -504,6 +519,12 @@ export async function deleteProducts(productIds: string[]) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('인증이 필요합니다')
+
+  try {
+    await assertShopWritable(supabase, user.id)
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : READ_ONLY_MESSAGE }
+  }
 
   const { data: shop } = await supabase
     .from('shops')

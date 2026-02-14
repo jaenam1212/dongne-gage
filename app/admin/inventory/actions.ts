@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import * as XLSX from 'xlsx'
 import { createClient } from '@/lib/supabase/server'
+import { assertShopWritable, READ_ONLY_MESSAGE } from '@/lib/billing'
 
 type RegisterResult = {
   error?: string
@@ -336,6 +337,17 @@ async function insertInventoryItemWithAutoSku(
 export async function registerInventory(formData: FormData): Promise<RegisterResult> {
   const { supabase, error, shopId } = await getShopIdOrError()
   if (error || !shopId) return { error: error ?? '인증 오류' }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: '인증이 필요합니다' }
+
+  try {
+    await assertShopWritable(supabase, user.id)
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : READ_ONLY_MESSAGE }
+  }
 
   const excelFile = formData.get('excelFile') as File | null
   const hasExcel = excelFile && excelFile.size > 0

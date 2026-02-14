@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import webpush from 'web-push'
+import { assertShopWritable } from '@/lib/billing'
 
 function ensureVapidDetails(): boolean {
   const subject = process.env.VAPID_SUBJECT
@@ -42,6 +43,7 @@ export async function updateReservationStatus(
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) throw new Error('인증이 필요합니다')
+  await assertShopWritable(supabase, user.id)
 
   const { data: reservation, error: fetchError } = await supabase
     .from('reservations')
@@ -120,6 +122,7 @@ export async function updateReservationsStatusBulk(
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('인증이 필요합니다')
+  await assertShopWritable(supabase, user.id)
 
   const { data: shop } = await supabase
     .from('shops')

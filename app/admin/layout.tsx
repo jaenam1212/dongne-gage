@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { AdminShell } from '@/components/admin/admin-shell'
+import { getShopBillingSnapshot } from '@/lib/billing'
 
 export const metadata: Metadata = {
   title: '관리자 - 동네 가게',
@@ -27,11 +28,14 @@ export default async function AdminLayout({
     .eq('owner_id', user.id)
     .single()
 
+  const billing = await getShopBillingSnapshot(supabase, user.id)
+
   return (
     <AdminShell
       shopName={shop?.name ?? '내 가게'}
       logoUrl={shop?.logo_url}
       isSystemOwner={shop?.is_system_owner ?? false}
+      billing={billing}
     >
       {children}
     </AdminShell>

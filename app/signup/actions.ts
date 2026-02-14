@@ -110,12 +110,23 @@ export async function signUp(formData: FormData) {
   // 가입 직후 쿠키에 세션 없어 RLS 통과 위해 확인 처리
   await admin.auth.admin.updateUserById(authData.user.id, { email_confirm: true })
 
+  const trialStartedAt = new Date()
+  const trialEndsAt = new Date(trialStartedAt)
+  trialEndsAt.setMonth(trialEndsAt.getMonth() + 3)
+
   const { error: shopError } = await admin.from('shops').insert({
     owner_id: authData.user.id,
     slug,
     name: shopName,
     phone,
     is_active: true,
+    trial_started_at: trialStartedAt.toISOString(),
+    trial_ends_at: trialEndsAt.toISOString(),
+    billing_status: 'trialing',
+    plan_code: 'starter_monthly',
+    read_only_mode: false,
+    billing_customer_key: `shop-${authData.user.id}`,
+    billing_updated_at: trialStartedAt.toISOString(),
   })
 
   if (shopError) {

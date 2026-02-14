@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { logout } from '@/app/admin/login/actions'
+import type { ShopBillingSnapshot } from '@/lib/billing'
 
 const BASE_NAV_ITEMS = [
   { href: '/admin/dashboard', label: '대시보드', icon: LayoutDashboard },
@@ -27,10 +28,11 @@ interface AdminShellProps {
   shopName: string
   logoUrl?: string | null
   isSystemOwner?: boolean
+  billing?: ShopBillingSnapshot | null
   children: React.ReactNode
 }
 
-export function AdminShell({ shopName, isSystemOwner = false, children }: AdminShellProps) {
+export function AdminShell({ shopName, isSystemOwner = false, billing, children }: AdminShellProps) {
   const pathname = usePathname()
   const navItems = isSystemOwner
     ? [...BASE_NAV_ITEMS, { href: '/admin/system-dashboard', label: '시스템 대시보드', icon: BarChart3 }]
@@ -117,6 +119,28 @@ export function AdminShell({ shopName, isSystemOwner = false, children }: AdminS
       {/* Main Content */}
       <main className="pb-20 md:pb-6 md:ml-60">
         <div className="mx-auto max-w-4xl px-4 py-5 md:px-6 md:py-6">
+          {billing?.readOnlyMode && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+              <p className="text-sm font-semibold text-red-700">무료체험이 종료되었습니다</p>
+              <p className="mt-1 text-xs text-red-600">현재 읽기 전용 모드입니다. 결제를 완료하면 즉시 편집 기능이 복구됩니다.</p>
+              <Link href="/admin/billing" className="mt-2 inline-block text-xs font-semibold text-red-700 underline underline-offset-2">
+                결제하러 가기
+              </Link>
+            </div>
+          )}
+          {!billing?.readOnlyMode && billing?.shouldShowReminder && billing.reminderDay && (
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-sm font-semibold text-amber-800">
+                무료 사용 기한이 {billing.reminderDay}일 남았습니다
+              </p>
+              <p className="mt-1 text-xs text-amber-700">
+                체험 종료 전 결제 정보를 등록해두면 서비스가 중단되지 않습니다.
+              </p>
+              <Link href="/admin/billing" className="mt-2 inline-block text-xs font-semibold text-amber-800 underline underline-offset-2">
+                결제 설정하기
+              </Link>
+            </div>
+          )}
           {children}
         </div>
       </main>

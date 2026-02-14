@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { CalendarCheck, Clock, User } from 'lucide-react'
 import { getTodayKST, getKSTDayStartUTC, getKSTDayEndExclusiveUTC } from '@/lib/datetime-kst'
+import { getShopBillingSnapshot } from '@/lib/billing'
+import Link from 'next/link'
+import { BillingQuickPayButton } from '@/components/admin/billing-quick-pay-button'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -13,6 +16,8 @@ export default async function DashboardPage() {
     .select('id')
     .eq('owner_id', user!.id)
     .single()
+
+  const billing = user ? await getShopBillingSnapshot(supabase, user.id) : null
 
   const todayKST = getTodayKST()
   const todayStart = getKSTDayStartUTC(todayKST)
@@ -82,7 +87,40 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <h1 className="text-xl font-bold text-stone-900">대시보드</h1>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs text-stone-500">결제 상태</p>
+            <p className="mt-1 text-lg font-bold text-stone-900">
+              {billing?.billingStatus === 'active'
+                ? '유료 이용중'
+                : billing?.readOnlyMode
+                ? '결제 필요 (읽기 전용)'
+                : '무료체험 이용중'}
+            </p>
+            {billing && (
+              <p className="mt-1 text-sm text-stone-500">
+                {billing.daysUntilTrialEnd >= 0
+                  ? `무료체험 종료까지 ${billing.daysUntilTrialEnd}일`
+                  : '무료체험이 종료되었습니다'}
+                {billing.nextBillingAt
+                  ? ` · 다음 결제 ${new Date(billing.nextBillingAt).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })}`
+                  : ''}
+              </p>
+            )}
+          </div>
+          <div className="shrink-0">
+            <BillingQuickPayButton />
+          </div>
+        </div>
+        <div className="mt-3">
+          <Link href="/admin/billing" className="text-xs font-semibold text-stone-700 underline underline-offset-2">
+            결제 상세 설정으로 이동
+          </Link>
+        </div>
+      </section>
+
+      <div className="grid gap-3 sm:grid-cols-4">
         <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50">
@@ -112,6 +150,26 @@ export default async function DashboardPage() {
             <span className="ml-1 text-sm font-medium text-stone-400">회</span>
           </p>
           <p className="mt-1 text-xs text-stone-400">예약 전환 추적</p>
+        </div>
+        <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+          <p className="text-xs text-stone-500">플랜 상태</p>
+          <p className="text-2xl font-bold text-stone-900">
+            {billing?.billingStatus === 'active'
+              ? '유료'
+              : billing?.readOnlyMode
+              ? '만료'
+              : '무료'}
+          </p>
+          {billing && (
+            <p className="mt-1 text-xs text-stone-400">
+              {billing.daysUntilTrialEnd >= 0
+                ? `무료체험 ${billing.daysUntilTrialEnd}일 남음`
+                : '무료체험 종료'}
+            </p>
+          )}
+          <Link href="/admin/billing" className="mt-2 inline-block text-xs font-semibold text-stone-700 underline underline-offset-2">
+            결제 관리
+          </Link>
         </div>
       </div>
 

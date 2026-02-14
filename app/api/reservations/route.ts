@@ -104,6 +104,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '상품을 찾을 수 없습니다' }, { status: 404 })
     }
 
+    const { data: shopBilling } = await supabase
+      .from('shops')
+      .select('read_only_mode, is_system_owner')
+      .eq('id', product.shop_id)
+      .maybeSingle()
+    if (shopBilling?.read_only_mode && !shopBilling.is_system_owner) {
+      return NextResponse.json(
+        { error: '현재 해당 가게는 결제 갱신이 필요해 예약을 받고 있지 않습니다.' },
+        { status: 403 }
+      )
+    }
+
     const optionGroups =
       Array.isArray(product.option_groups) ? (product.option_groups as Array<{
         name?: string

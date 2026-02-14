@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { assertShopWritable, READ_ONLY_MESSAGE } from '@/lib/billing'
 
 type UpdateShopResult = {
   success?: boolean
@@ -40,6 +41,12 @@ export async function updateShop(formData: FormData): Promise<UpdateShopResult> 
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: '인증이 필요합니다. 다시 로그인해주세요.' }
+
+  try {
+    await assertShopWritable(supabase, user.id)
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : READ_ONLY_MESSAGE }
+  }
 
   const { data: shop, error: shopError } = await supabase
     .from('shops')
