@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { ProductCard } from '@/components/customer/product-card'
 import { PwaTutorialLink } from '@/components/customer/pwa-tutorial-link'
 import { PushSubscribeButton } from '@/components/customer/push-subscribe-button'
+import { OwnerCta } from '@/components/customer/owner-cta'
 import Link from 'next/link'
 import { Store, Phone, ShoppingBag } from 'lucide-react'
 
@@ -141,6 +142,9 @@ export default async function ShopPage({ params }: Props) {
 
       <footer className="border-t border-stone-100 py-6 text-center text-xs text-stone-400">
         <p>동네 가게 · 우리 동네 예약 서비스</p>
+        <div className="mx-auto max-w-2xl px-4">
+          <OwnerCta />
+        </div>
       </footer>
     </div>
   )

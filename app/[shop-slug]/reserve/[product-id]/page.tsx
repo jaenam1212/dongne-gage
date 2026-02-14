@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { ReservationForm } from '@/components/customer/reservation-form'
+import { OwnerCta } from '@/components/customer/owner-cta'
 import { ArrowLeft, Clock } from 'lucide-react'
 import { formatKoreanWon } from '@/lib/utils'
 
@@ -165,6 +166,9 @@ export default async function ReservePage({ params }: Props) {
           />
         )}
       </main>
+      <div className="mx-auto max-w-md px-4 pb-6">
+        <OwnerCta />
+      </div>
     </div>
   )
 }

@@ -7,6 +7,7 @@ import { ArrowLeft, Package } from 'lucide-react'
 import { formatKoreanWon } from '@/lib/utils'
 import { getMyOrders, type StoredOrder } from '@/lib/my-orders-storage'
 import { formatDateKST } from '@/lib/datetime-kst'
+import { OwnerCta } from '@/components/customer/owner-cta'
 
 const STATUS_LABELS: Record<StoredOrder['status'], string> = {
   pending: '대기중',
@@ -115,6 +116,9 @@ function MyOrdersContent() {
           </div>
         )}
       </main>
+      <div className="mx-auto max-w-md px-4 pb-6">
+        <OwnerCta />
+      </div>
     </div>
   )
 }
@@ -131,6 +135,9 @@ function MyOrdersFallback() {
           <p className="text-sm text-stone-400">불러오는 중...</p>
         </div>
       </main>
+      <div className="mx-auto max-w-md px-4 pb-6">
+        <OwnerCta />
+      </div>
     </div>
   )
 }
