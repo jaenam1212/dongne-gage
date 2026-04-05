@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { ReservationForm } from '@/components/customer/reservation-form'
 import { OwnerCta } from '@/components/customer/owner-cta'
+import { CartButton } from '@/components/customer/cart-button'
 import { ArrowLeft, Clock } from 'lucide-react'
 import { formatKoreanWon } from '@/lib/utils'
 
@@ -14,12 +15,27 @@ interface Props {
 async function getProductWithShop(slug: string, productId: string) {
   const supabase = await createClient()
 
-  const { data: shop } = await supabase
+  const { data: shopWithWeekdays, error: shopWithWeekdaysError } = await supabase
     .from('shops')
-    .select('id, slug, name, description, logo_url')
+    .select('id, slug, name, description, logo_url, pickup_available_weekdays')
     .eq('slug', slug)
     .eq('is_active', true)
     .single()
+
+  const shop =
+    shopWithWeekdays ??
+    (
+      shopWithWeekdaysError
+        ? (
+            await supabase
+              .from('shops')
+              .select('id, slug, name, description, logo_url')
+              .eq('slug', slug)
+              .eq('is_active', true)
+              .single()
+          ).data
+        : null
+    )
 
   if (!shop) return null
 
@@ -123,10 +139,11 @@ export default async function ReservePage({ params }: Props) {
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-stone-900 truncate">{shop.name}</p>
           <p className="text-xs text-stone-400 truncate">{product.title}</p>
         </div>
+        <CartButton shopSlug={slug} />
       </header>
 
       <main className="mx-auto max-w-md px-4 py-6">
@@ -163,6 +180,7 @@ export default async function ReservePage({ params }: Props) {
             productImages={product.image_urls ?? []}
             shopSlug={slug}
             shopName={shop.name}
+            shopPickupAvailableWeekdays={shop.pickup_available_weekdays ?? null}
           />
         )}
       </main>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import useEmblaCarousel from 'embla-carousel-react'
@@ -17,6 +17,8 @@ import { getTodayKST } from '@/lib/datetime-kst'
 import { DatePicker } from '@/components/ui/date-picker'
 import { TimePickerField } from '@/components/ui/time-picker'
 import { trackUsageEvent } from '@/lib/usage-events'
+import { addCartItem } from '@/lib/cart-storage'
+import { formatPickupWeekdays, normalizePickupWeekdays } from '@/lib/pickup-weekdays'
 
 interface Product {
   id: string
@@ -57,13 +59,16 @@ export function ReservationForm({
   productImages,
   shopSlug,
   shopName,
+  shopPickupAvailableWeekdays,
 }: {
   product: Product
   productImages: string[]
   shopSlug: string
   shopName: string
+  shopPickupAvailableWeekdays?: number[] | null
 }) {
   const router = useRouter()
+  const formRef = useRef<HTMLFormElement>(null)
   const [loading, setLoading] = useState(false)
   const [privacyAgreed, setPrivacyAgreed] = useState(false)
   const [showPrivacy, setShowPrivacy] = useState(false)
@@ -148,6 +153,68 @@ export function ReservationForm({
     remaining !== null
       ? Math.min(remaining, perCustomer, 99)
       : Math.min(perCustomer, 99)
+  const allowedPickupWeekdays = normalizePickupWeekdays(shopPickupAvailableWeekdays)
+
+  function setSelectionErrors(newErrors: Record<string, string>) {
+    setErrors((prev) => {
+      const next = { ...prev }
+      delete next.quantity
+      for (const group of optionGroups) {
+        delete next[`option_${group.name}`]
+      }
+      return { ...next, ...newErrors }
+    })
+  }
+
+  function validateCartSelection(form: FormData): { quantity: number; error?: Record<string, string> } {
+    const quantity = parseInt(form.get('quantity') as string) || 0
+    const newErrors: Record<string, string> = {}
+
+    if (quantity < 1) newErrors.quantity = '수량을 선택해주세요'
+    if (remaining !== null && quantity > remaining) {
+      newErrors.quantity = `재고 부족입니다. 최대 ${remaining}개까지 예약할 수 있습니다`
+    } else if (quantity > maxQty) {
+      newErrors.quantity =
+        product.max_quantity_per_customer != null
+          ? `1인당 최대 ${product.max_quantity_per_customer}개까지 예약할 수 있습니다`
+          : `최대 ${maxQty}개까지 예약할 수 있습니다`
+    }
+
+    for (const group of optionGroups) {
+      const value = selectedOptions[group.name]
+      const isRequired = group.required !== false
+      if (isRequired && !value) {
+        newErrors[`option_${group.name}`] = `${group.name} 옵션을 선택해주세요`
+      }
+    }
+
+    return Object.keys(newErrors).length > 0
+      ? { quantity, error: newErrors }
+      : { quantity }
+  }
+
+  function handleAddToCart() {
+    if (!formRef.current) return
+
+    const form = new FormData(formRef.current)
+    const { quantity, error } = validateCartSelection(form)
+
+    if (error) {
+      setSelectionErrors(error)
+      return
+    }
+
+    setSelectionErrors({})
+    addCartItem(shopSlug, {
+      product_id: product.id,
+      title: product.title,
+      price: product.price,
+      image_url: product.image_url,
+      quantity,
+      selected_options: selectedOptions,
+    })
+    toast.success('장바구니에 담았습니다')
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -359,7 +426,7 @@ export function ReservationForm({
     <>
       <Toaster position="top-center" toastOptions={{ className: 'text-sm font-medium', duration: 3000 }} />
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
         {images.length > 0 && (
           <div className="rounded-2xl border border-stone-200 bg-white p-3 shadow-sm">
             <div className="overflow-hidden rounded-xl bg-stone-100" ref={mainEmblaRef}>
@@ -574,10 +641,12 @@ export function ReservationForm({
             <DatePicker
               name="pickup_date"
               min={getTodayKST()}
+              allowedWeekdays={allowedPickupWeekdays}
               placeholder="날짜 선택"
               className="w-full"
               inputClassName="h-11"
             />
+            <p className="text-xs text-stone-400">픽업 가능 요일: {formatPickupWeekdays(allowedPickupWeekdays)}</p>
             {errors.pickup_date && (
               <p className="text-xs text-red-500">{errors.pickup_date}</p>
             )}
@@ -653,20 +722,30 @@ export function ReservationForm({
           )}
         </div>
 
-        <Button
-          type="submit"
-          disabled={loading}
-          className="w-full h-12 bg-stone-900 text-white hover:bg-stone-800 rounded-xl text-base font-semibold min-h-[44px]"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              예약 처리 중...
-            </>
-          ) : (
-            '예약하기'
-          )}
-        </Button>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleAddToCart}
+            className="h-12 rounded-xl border-stone-200 text-base font-semibold min-h-[44px]"
+          >
+            장바구니 담기
+          </Button>
+          <Button
+            type="submit"
+            disabled={loading}
+            className="h-12 bg-stone-900 text-white hover:bg-stone-800 rounded-xl text-base font-semibold min-h-[44px]"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                예약 처리 중...
+              </>
+            ) : (
+              '바로 예약'
+            )}
+          </Button>
+        </div>
       </form>
     </>
   )

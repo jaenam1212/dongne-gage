@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { isPickupDateAllowed, normalizePickupWeekdays } from '@/lib/pickup-weekdays'
 
 const PHONE_REGEX = /^01[0-9]?[0-9]{3,4}[0-9]{4}$/
 const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/
@@ -112,11 +113,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '상품을 찾을 수 없습니다' }, { status: 404 })
     }
 
-    const { data: shopBilling } = await supabase
+    const { data: shopBillingWithWeekdays } = await supabase
       .from('shops')
-      .select('read_only_mode, is_system_owner')
+      .select('read_only_mode, is_system_owner, pickup_available_weekdays')
       .eq('id', product.shop_id)
       .maybeSingle()
+    const { data: shopBillingFallback } = shopBillingWithWeekdays
+      ? { data: null }
+      : await supabase
+          .from('shops')
+          .select('read_only_mode, is_system_owner')
+          .eq('id', product.shop_id)
+          .maybeSingle()
+    const shopBilling = shopBillingWithWeekdays ?? shopBillingFallback
     if (shopBilling?.read_only_mode && !shopBilling.is_system_owner) {
       return NextResponse.json(
         { error: '현재 해당 가게는 결제 갱신이 필요해 예약을 받고 있지 않습니다.' },
@@ -134,6 +143,19 @@ export async function POST(request: NextRequest) {
     if (product.pickup_time_required && !normalizedPickupTime) {
       return NextResponse.json(
         { error: '픽업 시간을 입력해주세요' },
+        { status: 400 }
+      )
+    }
+
+    if (
+      pickup_date &&
+      !isPickupDateAllowed(
+        pickup_date,
+        normalizePickupWeekdays(shopBilling?.pickup_available_weekdays ?? null)
+      )
+    ) {
+      return NextResponse.json(
+        { error: '선택한 날짜는 픽업이 불가능합니다. 다른 요일을 선택해주세요.' },
         { status: 400 }
       )
     }

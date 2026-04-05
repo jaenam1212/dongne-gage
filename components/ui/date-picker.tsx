@@ -10,6 +10,7 @@ type DatePickerProps = {
   name: string
   defaultValue?: string
   min?: string
+  allowedWeekdays?: number[]
   placeholder?: string
   className?: string
   inputClassName?: string
@@ -32,6 +33,7 @@ export function DatePicker({
   name,
   defaultValue = '',
   min,
+  allowedWeekdays,
   placeholder = '날짜 선택',
   className,
   inputClassName,
@@ -42,6 +44,18 @@ export function DatePicker({
 
   const selected = value ? toDate(value) : undefined
   const minDate = min ? toDate(min) : undefined
+  const allowedWeekdaySet = React.useMemo(
+    () => (Array.isArray(allowedWeekdays) && allowedWeekdays.length > 0 ? new Set(allowedWeekdays) : null),
+    [allowedWeekdays]
+  )
+  const disabledDays = React.useCallback(
+    (date: Date) => {
+      if (minDate && toYYYYMMDD(date) < toYYYYMMDD(minDate)) return true
+      if (allowedWeekdaySet && !allowedWeekdaySet.has(date.getDay())) return true
+      return false
+    },
+    [allowedWeekdaySet, minDate]
+  )
 
   React.useEffect(() => {
     if (!open) return
@@ -85,7 +99,7 @@ export function DatePicker({
                 setOpen(false)
               }
             }}
-            disabled={minDate ? { before: minDate } : undefined}
+            disabled={disabledDays}
             defaultMonth={selected ?? minDate ?? new Date()}
             classNames={{
               root: 'p-0',

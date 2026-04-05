@@ -58,7 +58,7 @@ export function ProductCard({
           : 'border-stone-200 hover:border-stone-300 hover:shadow-md'
       }`}
     >
-      <div className="relative aspect-[4/3] overflow-hidden bg-stone-100">
+      <div className="relative aspect-4/3 overflow-hidden bg-stone-100">
         {product.image_url ? (
           <Image
             src={product.image_url}
@@ -135,7 +135,7 @@ export function ProductCard({
               className="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-stone-800 active:bg-stone-950 min-h-[44px]"
             >
               <ShoppingBag className="h-4 w-4" />
-              예약하기
+              상세/예약
             </Link>
           )}
         </div>

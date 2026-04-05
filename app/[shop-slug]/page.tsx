@@ -6,6 +6,7 @@ import { ProductCard } from '@/components/customer/product-card'
 import { PwaTutorialLink } from '@/components/customer/pwa-tutorial-link'
 import { PushSubscribeButton } from '@/components/customer/push-subscribe-button'
 import { OwnerCta } from '@/components/customer/owner-cta'
+import { CartButton } from '@/components/customer/cart-button'
 import Link from 'next/link'
 import { Store, Phone, ShoppingBag } from 'lucide-react'
 
@@ -109,6 +110,7 @@ export default async function ShopPage({ params }: Props) {
               <ShoppingBag className="h-3.5 w-3.5" />
               내 주문 내역
             </Link>
+            <CartButton shopSlug={slug} />
             {shop.phone && (
               <div className="inline-flex items-center gap-2 rounded-lg bg-stone-50 px-3 py-1.5 text-sm text-stone-600">
                 <Phone className="h-3.5 w-3.5" />

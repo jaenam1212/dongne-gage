@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { assertShopWritable, READ_ONLY_MESSAGE } from '@/lib/billing'
+import { normalizePickupWeekdays } from '@/lib/pickup-weekdays'
 
 type UpdateShopResult = {
   success?: boolean
@@ -59,6 +60,11 @@ export async function updateShop(formData: FormData): Promise<UpdateShopResult> 
     return { error: '가게 정보를 찾을 수 없습니다.' }
   }
 
+  const selectedWeekdays = formData.getAll('pickup_available_weekdays').map(String)
+  if (selectedWeekdays.length === 0) {
+    return { error: '최소 1개 이상의 픽업 가능 요일을 선택해주세요.' }
+  }
+
   let logo_url = formData.get('current_logo_url') as string | null
   const logoFile = formData.get('logo') as File | null
 
@@ -98,11 +104,15 @@ export async function updateShop(formData: FormData): Promise<UpdateShopResult> 
       phone: normalizeOptionalString(formData.get('phone')),
       address: normalizeOptionalString(formData.get('address')),
       logo_url,
+      pickup_available_weekdays: normalizePickupWeekdays(selectedWeekdays),
     })
     .eq('id', shop.id)
 
   if (error) {
     console.error('Shop update failed:', error)
+    if (error.message?.includes('pickup_available_weekdays')) {
+      return { error: 'DB 마이그레이션이 아직 적용되지 않아 픽업 가능 요일 저장을 할 수 없습니다.' }
+    }
     return { error: '가게 정보 저장에 실패했습니다. 잠시 후 다시 시도해주세요.' }
   }
 

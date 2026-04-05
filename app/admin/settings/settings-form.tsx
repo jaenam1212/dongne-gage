@@ -9,6 +9,11 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ImagePlus, Check, Loader2 } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
+import {
+  DEFAULT_PICKUP_WEEKDAYS,
+  PICKUP_WEEKDAY_OPTIONS,
+  normalizePickupWeekdays,
+} from '@/lib/pickup-weekdays'
 
 interface Shop {
   id: string
@@ -19,11 +24,15 @@ interface Shop {
   address: string | null
   logo_url: string | null
   kakao_channel_url: string | null
+  pickup_available_weekdays?: number[] | null
 }
 
 export function SettingsForm({ shop }: { shop: Shop | null }) {
   const [loading, setLoading] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(shop?.logo_url ?? null)
+  const [pickupWeekdays, setPickupWeekdays] = useState<number[]>(
+    normalizePickupWeekdays(shop?.pickup_available_weekdays ?? DEFAULT_PICKUP_WEEKDAYS)
+  )
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -126,6 +135,46 @@ export function SettingsForm({ shop }: { shop: Shop | null }) {
                 className="border-stone-200 bg-stone-50 focus-visible:ring-stone-400"
               />
             </div>
+          </div>
+
+          <div className="space-y-3 rounded-2xl border border-stone-200 bg-stone-50 p-4">
+            <div>
+              <Label className="text-stone-700">픽업 가능 요일</Label>
+              <p className="mt-1 text-xs text-stone-500">
+                구매자가 선택할 수 있는 픽업 날짜를 제한합니다.
+              </p>
+            </div>
+            <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+              {PICKUP_WEEKDAY_OPTIONS.map((weekday) => {
+                const checked = pickupWeekdays.includes(weekday.value)
+                return (
+                  <label
+                    key={weekday.value}
+                    className={`flex cursor-pointer items-center justify-center rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+                      checked
+                        ? 'border-stone-900 bg-stone-900 text-white'
+                        : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-100'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      name="pickup_available_weekdays"
+                      value={weekday.value}
+                      checked={checked}
+                      onChange={(event) => {
+                        const next = event.target.checked
+                          ? [...pickupWeekdays, weekday.value]
+                          : pickupWeekdays.filter((value) => value !== weekday.value)
+                        setPickupWeekdays(normalizePickupWeekdays(next))
+                      }}
+                      className="sr-only"
+                    />
+                    {weekday.label}
+                  </label>
+                )
+              })}
+            </div>
+            <p className="text-xs text-stone-400">최소 1개 요일은 선택해야 합니다.</p>
           </div>
 
           <div className="space-y-2">
