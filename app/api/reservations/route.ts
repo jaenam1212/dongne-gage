@@ -5,6 +5,12 @@ import { isPickupDateAllowed, normalizePickupWeekdays } from '@/lib/pickup-weekd
 const PHONE_REGEX = /^01[0-9]?[0-9]{3,4}[0-9]{4}$/
 const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/
 
+type ShopBillingInfo = {
+  read_only_mode: boolean | null
+  is_system_owner: boolean | null
+  pickup_available_weekdays?: number[] | null
+}
+
 function getClientIp(request: NextRequest): string {
   return (
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
@@ -125,7 +131,8 @@ export async function POST(request: NextRequest) {
           .select('read_only_mode, is_system_owner')
           .eq('id', product.shop_id)
           .maybeSingle()
-    const shopBilling = shopBillingWithWeekdays ?? shopBillingFallback
+    const shopBilling: ShopBillingInfo | null =
+      shopBillingWithWeekdays ?? shopBillingFallback
     if (shopBilling?.read_only_mode && !shopBilling.is_system_owner) {
       return NextResponse.json(
         { error: '현재 해당 가게는 결제 갱신이 필요해 예약을 받고 있지 않습니다.' },

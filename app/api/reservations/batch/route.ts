@@ -11,6 +11,15 @@ type BatchItem = {
   selected_options?: Record<string, string>
 }
 
+type ShopBillingInfo = {
+  id: string
+  slug: string
+  name: string
+  read_only_mode: boolean | null
+  is_system_owner: boolean | null
+  pickup_available_weekdays?: number[] | null
+}
+
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
 
 function getClientIp(request: NextRequest): string {
@@ -137,7 +146,7 @@ export async function POST(request: NextRequest) {
           .eq('is_active', true)
           .maybeSingle()
 
-    const shop = shopWithWeekdays ?? shopFallback
+    const shop: ShopBillingInfo | null = shopWithWeekdays ?? shopFallback
 
     if (!shop) {
       return NextResponse.json({ error: '가게를 찾을 수 없습니다' }, { status: 404 })

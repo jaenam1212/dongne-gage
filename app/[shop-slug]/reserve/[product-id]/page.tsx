@@ -12,6 +12,15 @@ interface Props {
   params: Promise<{ 'shop-slug': string; 'product-id': string }>
 }
 
+type ReservePageShop = {
+  id: string
+  slug: string
+  name: string
+  description: string | null
+  logo_url: string | null
+  pickup_available_weekdays?: number[] | null
+}
+
 async function getProductWithShop(slug: string, productId: string) {
   const supabase = await createClient()
 
@@ -22,7 +31,7 @@ async function getProductWithShop(slug: string, productId: string) {
     .eq('is_active', true)
     .single()
 
-  const shop =
+  const shop: ReservePageShop | null =
     shopWithWeekdays ??
     (
       shopWithWeekdaysError
